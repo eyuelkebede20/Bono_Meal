@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import mongoose from "mongoose";
-import Card from "../models/card.js";
-import Transaction from "../models/transaction.js";
+import Card from "../models/Card.js";
+import Transaction from "../models/Transaction.js";
 
 const DAILY_RATE = 100; // 3000 ETB / 30 days
 

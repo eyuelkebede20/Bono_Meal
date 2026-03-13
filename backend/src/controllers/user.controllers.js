@@ -1,12 +1,45 @@
 import express from "express";
 import mongoose from "mongoose";
-import User from "../models/user.js";
-import Card from "../models/card.js";
-import Transaction from "../models/transaction.js";
+import User from "../models/User.js";
+import Card from "../models/Card.js";
+import Transaction from "../models/Transaction.js";
 export async function fetchAllUsers(req, res) {
   try {
-    const users = await User.find().select("-passwordHash");
-    res.status(200).json(users);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
+    const roleFilter = req.query.role; // Optional: filter by role
+
+    const query = {};
+
+    if (roleFilter) {
+      query.role = roleFilter;
+    }
+
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+        { studentId: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const users = await User.find(query).select("-passwordHash").populate("activeCard").skip(skip).limit(limit).sort({ createdAt: -1 });
+
+    const totalUsers = await User.countDocuments(query);
+
+    res.status(200).json({
+      users,
+      pagination: {
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        currentPage: page,
+        pageSize: limit,
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

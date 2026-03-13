@@ -1,62 +1,21 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    firstName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    lastName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      lowercase: true,
-    },
-    passwordHash: {
-      type: String,
-      required: true,
-    },
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    phone: { type: String, required: true, unique: true }, // Main login identifier
     role: {
       type: String,
-      enum: ["student", "finance_admin", "super_admin"],
+      enum: ["super_admin", "finance_admin", "student", "security_guard"],
       default: "student",
     },
-    isApproved: {
-      type: Boolean,
-      default: false, // Defaults to false to enforce approval
-    },
-    phone: {
-      type: String,
-      required: false,
-      unique: true,
-      trim: true,
-    },
-    studentId: {
-      // Optional: Only for students
-      type: String,
-      unique: true,
-      sparse: true,
-    },
-    faydaId: {
-      // Optional: Only for students
-      type: String,
-      required: false,
-      unique: true,
-      sparse: true,
-    },
-    activeCard: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Card",
-    },
+    studentId: { type: String }, // Optional depending on role
+    faydaId: { type: String }, // Optional
+    isApproved: { type: Boolean, default: false },
+    activeCard: { type: mongoose.Schema.Types.ObjectId, ref: "Card" },
   },
   { timestamps: true },
 );
 
-module.exports = mongoose.model("User", userSchema);
+export default mongoose.model("User", userSchema);

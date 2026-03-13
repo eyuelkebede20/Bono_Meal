@@ -1,12 +1,13 @@
 import express from "express";
 import { authMiddleware, roleMiddleware } from "../middleware/auth.checker.js";
-import Transaction from "../models/transaction.js";
+import Transaction from "../models/Transaction.js";
 import { topUpUser } from "../controllers/user.controllers.js";
-import Card from "../models/card.js";
+import Card from "../models/Card.js";
 
 const adminRouter = express.Router();
 
 // GET /api/transactions
+
 adminRouter.get("/transactions", authMiddleware, async (req, res) => {
   try {
     const { role, id } = req.user;

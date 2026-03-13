@@ -5,6 +5,8 @@ import router from "./src/routes/auth.routes.js";
 import userRouter from "./src/routes/user.routes.js";
 import adminRouter from "./src/routes/admin.transaction.routes.js";
 import runDailyDeduction from "./src/config/dailyDeduction.js";
+import topUpRoutes from "./src/routes/topups.routes.js";
+import attendanceRoutes from "./src/routes/attendance.routes.js";
 import cors from "cors";
 
 const app = express();
@@ -20,6 +22,8 @@ runDailyDeduction();
 app.use("/api/auth", router);
 app.use("/api/users", userRouter);
 app.use("/api", adminRouter);
+app.use("/api/topups", topUpRoutes);
+app.use("/api/attendance", attendanceRoutes);
 
 app.listen(process.env.PORT, () => {
   try {
