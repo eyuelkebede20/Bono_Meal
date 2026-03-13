@@ -1,6 +1,7 @@
 import express from "express";
 import { authMiddleware, roleMiddleware } from "../middleware/auth.checker.js";
 import Transaction from "../models/transaction.js";
+import { topUpUser } from "../controllers/user.controllers.js";
 import Card from "../models/card.js";
 
 const adminRouter = express.Router();
@@ -92,7 +93,7 @@ adminRouter.get("/metrics", authMiddleware, roleMiddleware(["super_admin", "fina
     res.status(500).json({ error: error.message });
   }
 });
-adminRouter.post("/suspend", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), async (req, res) => {
+adminRouter.post("/transactions/suspend", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), async (req, res) => {
   try {
     const { cardNumber } = req.body;
 
@@ -111,7 +112,7 @@ adminRouter.post("/suspend", authMiddleware, roleMiddleware(["finance_admin", "s
 });
 
 // POST /api/transactions/activate
-adminRouter.post("/activate", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), async (req, res) => {
+adminRouter.post("/transactions/activate", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), async (req, res) => {
   try {
     const { cardNumber } = req.body;
 
@@ -156,4 +157,23 @@ adminRouter.post("/scan", authMiddleware, roleMiddleware(["finance_admin", "supe
     res.status(500).json({ error: error.message });
   }
 });
+
+adminRouter.get("/transactions/user/:id", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // 1. Find the card belonging to this user
+    const card = await Card.findOne({ owner: userId });
+    if (!card) return res.status(200).json([]); // Return empty array if no card found
+
+    // 2. Find transactions for that card
+    const transactions = await Transaction.find({ card: card._id }).sort({ createdAt: -1 });
+
+    res.status(200).json(transactions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+adminRouter.post("/transactions/topup", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), topUpUser);
+
 export default adminRouter;

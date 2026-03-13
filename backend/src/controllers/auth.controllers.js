@@ -3,6 +3,7 @@ import crypto from "crypto";
 import User from "../models/user.js";
 import Card from "../models/card.js";
 import jwt from "jsonwebtoken";
+import BlacklistedToken from "../models/BlacklistedToken.js";
 export async function login(req, res) {
   try {
     const { email, password } = req.body;
@@ -26,7 +27,14 @@ export async function login(req, res) {
 }
 export async function logout(req, res) {
   try {
-    const token = req.header("Authorization").replace("Bearer ", "");
+    const authHeader = req.header("Authorization");
+
+    // Check if the header exists before trying to replace
+    if (!authHeader) {
+      return res.status(400).json({ error: "Authorization header missing" });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
 
     const blacklistedToken = new BlacklistedToken({ token });
     await blacklistedToken.save();

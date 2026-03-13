@@ -19,7 +19,7 @@ app.use(
 runDailyDeduction();
 app.use("/api/auth", router);
 app.use("/api/users", userRouter);
-app.use("/api/", adminRouter);
+app.use("/api", adminRouter);
 
 app.listen(process.env.PORT, () => {
   try {

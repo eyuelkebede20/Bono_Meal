@@ -23,7 +23,7 @@ export default function SuperAdminDashboard() {
     });
     if (usersRes.ok) setUsers(await usersRes.json());
 
-    const pendingRes = await fetch("http://localhost:3000/api/admin/users/pending", {
+    const pendingRes = await fetch("http://localhost:3000/api/users/pending", {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (pendingRes.ok) setPendingUsers(await pendingRes.json());
@@ -37,7 +37,7 @@ export default function SuperAdminDashboard() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch(`http://localhost:3000/api/admin/users/${userId}/approve`, {
+      const res = await fetch(`http://localhost:3000/api/users/${userId}/approve`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
