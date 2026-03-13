@@ -10,6 +10,11 @@ export default function SuperAdminDashboard() {
   const [users, setUsers] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
 
+  // Number formatter
+  const formatNumber = (num) => {
+    return Number(num || 0).toLocaleString();
+  };
+
   const fetchData = async () => {
     const token = localStorage.getItem("token");
 
@@ -54,33 +59,33 @@ export default function SuperAdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-base-300 p-6 space-y-6">
-      <div className="flex space-between">
-        {" "}
-        <h1 className="text-3xl font-bold text-primary">Super Admin Dashboard</h1>
+    <div className="min-h-screen bg-base-300 p-4 md:p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-primary">Super Admin Dashboard</h1>
         <LogoutButton />
       </div>
 
       {/* Metrics */}
-      <div className="stats shadow w-full">
-        <div className="stat">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="stat bg-base-100 shadow rounded-lg">
           <div className="stat-title">Active Cards</div>
-          <div className="stat-value text-success">{metrics.cards.active}</div>
+          <div className="stat-value text-success">{formatNumber(metrics.cards.active)}</div>
         </div>
 
-        <div className="stat">
+        <div className="stat bg-base-100 shadow rounded-lg">
           <div className="stat-title">Suspended Cards</div>
-          <div className="stat-value text-error">{metrics.cards.suspended}</div>
+          <div className="stat-value text-error">{formatNumber(metrics.cards.suspended)}</div>
         </div>
 
-        <div className="stat">
+        <div className="stat bg-base-100 shadow rounded-lg">
           <div className="stat-title">Today's Deductions</div>
-          <div className="stat-value text-warning">{metrics.today.deductions.totalAmount} ETB</div>
+          <div className="stat-value text-warning text-xl md:text-2xl">{formatNumber(metrics.today.deductions.totalAmount)} ETB</div>
         </div>
 
-        <div className="stat">
+        <div className="stat bg-base-100 shadow rounded-lg">
           <div className="stat-title">Today's Top Ups</div>
-          <div className="stat-value text-primary">{metrics.today.topUps.totalAmount} ETB</div>
+          <div className="stat-value text-primary text-xl md:text-2xl">{formatNumber(metrics.today.topUps.totalAmount)} ETB</div>
         </div>
       </div>
 
@@ -110,7 +115,7 @@ export default function SuperAdminDashboard() {
                         {user.firstName} {user.lastName}
                       </td>
 
-                      <td>{user.email}</td>
+                      <td className="break-all">{user.email}</td>
 
                       <td>
                         <span className="badge badge-outline">{user.role}</span>
@@ -153,7 +158,7 @@ export default function SuperAdminDashboard() {
                       {u.firstName} {u.lastName}
                     </td>
 
-                    <td>{u.email}</td>
+                    <td className="break-all">{u.email}</td>
 
                     <td>
                       <span className="badge badge-outline">{u.role}</span>

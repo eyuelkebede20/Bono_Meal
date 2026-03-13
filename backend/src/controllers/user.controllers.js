@@ -92,7 +92,3 @@ export async function approveUser(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
-
-export async function registerNewUser() {}
-export async function updateExisting() {}
-export async function deleteUser() {}
