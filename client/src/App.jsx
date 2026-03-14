@@ -4,9 +4,10 @@ import Login from "./components/Login";
 import SuperAdminDashboard from "./components/SuperAdminDashboard";
 import FinanceDashboard from "./components/FinanceDashboard";
 import StudentDashboard from "./components/StudentDashboard";
-import CanteenScanner from "./components/CanteenScanner";
+import SecurityGuardDashboard from "./components/SecurityGuardDashboard";
 import Unauthorized from "./components/Unauthorized";
 import TestScanner from "./components/TestScanner";
+import ForgotPassword from "./components/ForgotPassword";
 import Signup from "./components/Signup";
 
 const ProtectedRoute = ({ allowedRoles }) => {
@@ -42,10 +43,14 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={["super_admin"]} />}>
           <Route path="/super-admin" element={<SuperAdminDashboard />} />
         </Route>
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         <Route element={<ProtectedRoute allowedRoles={["finance_admin", "super_admin"]} />}>
           <Route path="/finance-admin" element={<FinanceDashboard />} />
-          <Route path="/canteen-scanner" element={<CanteenScanner />} />
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={["security_guard", "super_admin"]} />}>
+          <Route path="/security-guard" element={<SecurityGuardDashboard />} />
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={["student"]} />}>

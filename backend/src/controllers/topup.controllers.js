@@ -1,6 +1,7 @@
 import TopUpRequest from "../models/TopUpRequest.js";
 import Card from "../models/Card.js";
 import Transaction from "../models/Transaction.js";
+import User from "../models/User.js";
 
 // Student submits bank transfer details
 export async function submitRequest(req, res) {
@@ -97,6 +98,31 @@ export async function revertRequest(req, res) {
     await transaction.save();
 
     res.status(200).json({ message: "Top-up reverted successfully.", newBalance: card.balance });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function searchApprovedRequests(req, res) {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(200).json([]);
+
+    const students = await User.find({
+      $or: [{ firstName: { $regex: q, $options: "i" } }, { lastName: { $regex: q, $options: "i" } }, { phone: { $regex: q, $options: "i" } }],
+    }).select("_id");
+
+    const studentIds = students.map((s) => s._id);
+
+    const approvedRequests = await TopUpRequest.find({
+      student: { $in: studentIds },
+      status: "approved",
+    })
+      .populate("student", "firstName lastName phone")
+      .sort({ updatedAt: -1 })
+      .limit(10);
+
+    res.status(200).json(approvedRequests);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

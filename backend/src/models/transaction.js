@@ -15,7 +15,7 @@ const transactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["top_up", "meal_purchase", "manual_adjustment", "refund", "daily_deduction"],
+      enum: ["top_up", "meal_purchase", "manual_adjustment", "refund", "daily_deduction", "reversal", "deposit", "meal_deduction"],
       required: true,
     },
     amount: {

@@ -1,119 +1,169 @@
 import { useState, useEffect } from "react";
-import { jwtDecode } from "jwt-decode";
-import LogoutButton from "./LogoutButton";
+import { useNavigate } from "react-router-dom";
+import StudentTopUpRequest from "./StudentTopUpRequest";
 
 export default function StudentDashboard() {
-  const [user, setUser] = useState(null);
-  const [transactions, setTransactions] = useState([]); // Initialize as empty array
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      const decoded = jwtDecode(token);
-      const userId = decoded._id; // Get the ID from the token
-
-      try {
-        // Fetch User Info
-        const userRes = await fetch(`http://localhost:3000/api/users/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (userRes.ok) {
-          setUser(await userRes.json());
-        }
-
-        // Fetch Transactions (Ensure this route exists on your backend!)
-        const transRes = await fetch(`http://localhost:3000/api/transactions/user/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (transRes.ok) {
-          const data = await transRes.json();
-          // Ensure the data is an array before setting it
-          if (Array.isArray(data)) {
-            setTransactions(data);
-          } else {
-            // If your backend wraps it like { transactions: [...] }
-            setTransactions(data.transactions || []);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch data", error);
-      }
-    };
-
-    fetchData();
+    fetchDashboardData();
   }, []);
 
-  if (!user)
-    return (
-      <div className="flex justify-center mt-20">
-        <span className="loading loading-spinner loading-lg text-primary"></span>
-      </div>
-    );
+  const fetchDashboardData = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/api/users/me/dashboard", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setData(json);
+      } else {
+        setError(json.error);
+      }
+    } catch (err) {
+      setError("Failed to fetch dashboard data");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
+  if (error) return <div className="p-4 text-red-500">{error}</div>;
+  if (!data) return <div className="p-4">Loading...</div>;
+
+  const { student, topUpRequests, attendance, transactions, daysEaten } = data;
 
   return (
-    <div className="min-h-screen bg-base-300 p-6">
-      {/* Navbar */}
-      <div className="navbar bg-base-100 rounded-box shadow mb-6">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-primary">Student Dashboard</h1>
-        </div>
-        <div>
-          <LogoutButton />
-        </div>
+    <div className="min-h-screen bg-base-300 p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-primary">Student Dashboard</h1>
+        <button onClick={handleLogout} className="btn btn-error btn-sm">
+          Logout
+        </button>
       </div>
 
-      <h2 className="text-lg mb-4">
-        Welcome, <span className="text-primary font-semibold">{user.firstName}</span>
-      </h2>
-
-      {/* Bono Card */}
-      <div className="card bg-base-100 shadow-xl w-full max-w-md mb-8">
-        <div className="card-body">
-          <h3 className="card-title text-primary">Bono Card</h3>
-
-          <div className="stats shadow">
-            <div className="stat">
-              <div className="stat-title">Balance</div>
-              <div className="stat-value text-primary">{user.activeCard?.balance} ETB</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Profile & Quota */}
+        <div className="card w-full bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title text-primary">Profile Overview</h2>
+            <p>
+              <strong>Name:</strong> {student.firstName} {student.lastName}
+            </p>
+            <p>
+              <strong>Phone:</strong> {student.phone}
+            </p>
+            <p>
+              <strong>Status:</strong> {student.isApproved ? "Approved" : "Pending Approval"}
+            </p>
+            <div className="mt-4">
+              <h3 className="font-bold">Meal Plan Usage</h3>
+              <progress className="progress progress-primary w-full" value={daysEaten} max="30"></progress>
+              <p className="text-sm mt-1">{daysEaten} / 30 Days Consumed</p>
             </div>
           </div>
-
-          <p className="mt-3">
-            Status: <span className={`badge ${user.activeCard?.isActive ? "badge-success" : "badge-error"}`}>{user.activeCard?.isActive ? "Active" : "Suspended"}</span>
-          </p>
-
-          <p className="text-sm opacity-70">Card Number: {user.activeCard?.cardNumber}</p>
         </div>
-      </div>
 
-      {/* Ledger */}
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h3 className="card-title text-primary">Ledger</h3>
+        {/* Top Up Request Form */}
+        <StudentTopUpRequest onUploadSuccess={fetchDashboardData} />
 
-          <div className="overflow-x-auto">
-            <table className="table table-zebra">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t) => (
-                  <tr key={t._id}>
-                    <td>{new Date(t.createdAt).toLocaleDateString()}</td>
-                    <td>
-                      <span className={`badge ${t.type === "credit" ? "badge-success" : "badge-error"}`}>{t.type}</span>
-                    </td>
-                    <td>{t.amount} ETB</td>
+        {/* Top-Up Requests Status */}
+        <div className="card w-full bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title text-primary">Top-Up Requests</h2>
+            <div className="overflow-y-auto max-h-60">
+              <table className="table table-compact w-full">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Txn No.</th>
+                    <th>Amount</th>
+                    <th>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {topUpRequests.map((req) => (
+                    <tr key={req._id}>
+                      <td>{new Date(req.createdAt).toLocaleDateString()}</td>
+                      <td>{req.transactionNumber}</td>
+                      <td>{req.amount}</td>
+                      <td className="capitalize">{req.status}</td>
+                    </tr>
+                  ))}
+                  {topUpRequests.length === 0 && (
+                    <tr>
+                      <td colSpan="4">No requests found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Financial Transactions */}
+        <div className="card w-full bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title text-primary">Transactions</h2>
+            <div className="overflow-y-auto max-h-60">
+              <table className="table table-compact w-full">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((txn) => (
+                    <tr key={txn._id}>
+                      <td>{new Date(txn.createdAt).toLocaleDateString()}</td>
+                      <td className="capitalize">{txn.type.replace("_", " ")}</td>
+                      <td>{txn.amount}</td>
+                    </tr>
+                  ))}
+                  {transactions.length === 0 && (
+                    <tr>
+                      <td colSpan="3">No transactions found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Attendance History */}
+        <div className="card w-full bg-base-100 shadow-xl md:col-span-2">
+          <div className="card-body">
+            <h2 className="card-title text-primary">Meal Attendance History</h2>
+            <div className="overflow-y-auto max-h-60">
+              <table className="table table-compact w-full">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Meal Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendance.map((record) => (
+                    <tr key={record._id}>
+                      <td>{new Date(record.date).toLocaleString()}</td>
+                      <td className="capitalize">{record.mealType}</td>
+                    </tr>
+                  ))}
+                  {attendance.length === 0 && (
+                    <tr>
+                      <td colSpan="2">No meals recorded yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
