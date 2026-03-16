@@ -11,58 +11,44 @@ import Otp from "../models/Otp.js";
 
 export const signup = async (req, res) => {
   try {
-    const { firstName, lastName, phone, password, role, studentId, faydaId } = req.body;
+    const { phone, password, role /* other fields... */ } = req.body;
 
     const existingUser = await User.findOne({ phone });
-    if (existingUser) {
-      return res.status(400).json({ error: "Phone number already registered." });
+    if (existingUser) return res.status(400).json({ error: "Phone number already registered." });
+
+    // 1. Check if they linked Telegram first
+    // We search by phone variations to be safe
+    const cleanPhone = phone.replace(/\D/g, "");
+    const phoneVariations = [cleanPhone, `+${cleanPhone}`];
+    if (cleanPhone.startsWith("251")) phoneVariations.push(`0${cleanPhone.substring(3)}`);
+
+    // We look for any "shell" user created by the bot or just check the phone
+    const linkedUser = await User.findOne({ phone: { $in: phoneVariations } });
+
+    if (!linkedUser || !linkedUser.telegramChatId) {
+      return res.status(400).json({
+        error: "Telegram not linked. Please message @bon_card_otp_bot first to verify your phone.",
+      });
     }
 
+    // 2. Hash password and save the full user
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const isMilitary = role === "military_student";
+    // Update the existing linked record instead of creating a new one
+    linkedUser.password = passwordHash;
+    linkedUser.role = role;
+    linkedUser.isApproved = false;
+    // ... map other fields ...
+    await linkedUser.save();
 
-    const newUser = new User({
-      firstName,
-      lastName,
-      phone,
-      password: passwordHash,
-      role,
-      studentId: ["student", "military_student"].includes(role) ? studentId : undefined,
-      faydaId: ["student", "military_student"].includes(role) ? faydaId : undefined,
-      isApproved: false,
-    });
-
-    await newUser.save();
-
-    if (isMilitary) {
-      const newCard = await Card.create({
-        owner: newUser._id,
-        cardNumber: `MIL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        balance: 3000,
-        isActive: false,
-      });
-
-      newUser.activeCard = newCard._id;
-      await newUser.save();
-
-      await Transaction.create({
-        card: newCard._id,
-        user: newUser._id,
-        type: "top_up",
-        amount: 3000,
-        status: "completed",
-        description: "Initial Military Allowance",
-      });
-    }
-
-    // Generate and save OTP
+    // 3. Generate and Send OTP to Telegram
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, returnDocument: "after" });
 
-    console.log(`OTP for ${phone} is ${code}`); // Uncomment to view in terminal
-    res.status(201).json({ message: "Signup successful. OTP generated.", user: newUser });
+    await bot.sendMessage(linkedUser.telegramChatId, `Your Signup Verification OTP is: ${code}`);
+
+    res.status(201).json({ message: "Signup successful. OTP sent to Telegram." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

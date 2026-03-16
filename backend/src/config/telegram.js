@@ -24,34 +24,23 @@ bot.onText(/\/start/, (msg) => {
 
 bot.on("contact", async (msg) => {
   const chatId = msg.chat.id;
-
-  // Clean it up completely (extract only digits)
   let cleanPhone = msg.contact.phone_number.replace(/\D/g, "");
-
-  // Create variations to check against your DB
-  const phoneVariations = [
-    cleanPhone, // e.g., 251954956260
-    `+${cleanPhone}`, // e.g., +251954956260
-  ];
-
-  // Handle local 09 format
-  if (cleanPhone.startsWith("251")) {
-    phoneVariations.push(`0${cleanPhone.substring(3)}`); // e.g., 0954956260
-  }
+  const phoneVariations = [cleanPhone, `+${cleanPhone}`];
+  if (cleanPhone.startsWith("251")) phoneVariations.push(`0${cleanPhone.substring(3)}`);
 
   try {
-    const user = await User.findOneAndUpdate({ phone: { $in: phoneVariations } }, { telegramChatId: chatId }, { returnDocument: "after" });
+    // upsert: true means if the user doesn't exist, create a shell record with the phone and chatId
+    const user = await User.findOneAndUpdate(
+      { phone: { $in: phoneVariations } },
+      { telegramChatId: chatId, phone: cleanPhone }, // ensure phone is saved
+      { returnDocument: "after", upsert: true },
+    );
 
-    if (!user) {
-      return bot.sendMessage(chatId, "No account found with this phone number. Please sign up on the website first.");
-    }
-
-    bot.sendMessage(chatId, "✅ Account updated successfully! Your Telegram is now linked. Go back to the website and click 'Send OTP'.", {
+    bot.sendMessage(chatId, "✅ Phone verified! You can now complete your Signup or Password Reset on the website.", {
       reply_markup: { remove_keyboard: true },
     });
   } catch (error) {
-    console.error("Telegram Link Error:", error);
-    bot.sendMessage(chatId, "An error occurred while linking your account.");
+    bot.sendMessage(chatId, "Error linking phone.");
   }
 });
 export default telegramBotRoute;
