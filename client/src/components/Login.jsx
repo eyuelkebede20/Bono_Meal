@@ -22,12 +22,12 @@ export default function Login() {
         if (role === "super_admin") navigate("/super-admin");
         else if (role === "finance_admin") navigate("/finance-admin");
         else if (role === "security_guard") navigate("/security-guard");
-        else navigate("/student");
+        else navigate("/user");
       } catch {
         localStorage.removeItem("token");
       }
     }
-  }, []);
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -55,7 +55,7 @@ export default function Login() {
         if (role === "super_admin") navigate("/super-admin");
         else if (role === "finance_admin") navigate("/finance-admin");
         else if (role === "security_guard") navigate("/security-guard");
-        else navigate("/student");
+        else navigate("/user");
       } else {
         setError(data.error || "Login failed");
       }

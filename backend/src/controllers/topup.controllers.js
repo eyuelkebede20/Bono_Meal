@@ -38,24 +38,41 @@ export async function approveRequest(req, res) {
     const adminId = req.user._id;
 
     const request = await TopUpRequest.findById(id);
-    if (!request || request.status !== "pending") return res.status(400).json({ error: "Invalid or already processed request." });
+    if (!request) return res.status(404).json({ error: "Top-up request not found." });
+    if (request.status !== "pending") return res.status(400).json({ error: "This request has already been processed." });
 
-    const card = await Card.findOne({ owner: request.student });
-    if (!card) return res.status(404).json({ error: "Student card not found." });
+    const targetUserId = request.student || request.user;
+    let card = await Card.findOne({ owner: targetUserId });
+
+    if (!card) {
+      card = await Card.create({
+        owner: targetUserId,
+        cardNumber: `STU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        balance: 0,
+        isActive: true,
+      });
+
+      // CRITICAL: Link the newly created card to the User profile
+      await User.findByIdAndUpdate(targetUserId, { activeCard: card._id });
+    }
+
+    // Force number conversion to prevent string concatenation
+    const depositAmount = Number(request.amount);
+
+    card.balance += depositAmount;
+    if (!card.isActive && card.balance >= 100) card.isActive = true;
+    await card.save();
 
     request.status = "approved";
     request.handledBy = adminId;
     await request.save();
 
-    card.balance += request.amount;
-    if (!card.isActive && card.balance >= 100) card.isActive = true;
-    await card.save();
-
     const transaction = new Transaction({
       card: card._id,
-      user: adminId,
-      type: "top_up",
-      amount: request.amount,
+      user: targetUserId,
+      handledBy: adminId,
+      type: "deposit", // Ensure this matches your Enum (deposit vs top_up)
+      amount: depositAmount,
       status: "completed",
       description: `Bank transfer approved. Ref: ${request.transactionNumber}`,
     });
@@ -63,10 +80,10 @@ export async function approveRequest(req, res) {
 
     res.status(200).json({ message: "Top-up approved.", newBalance: card.balance });
   } catch (error) {
+    console.error("Approval Error:", error);
     res.status(500).json({ error: error.message });
   }
 }
-
 // Finance reverts a mistaken approval (Item 6)
 export async function revertRequest(req, res) {
   try {

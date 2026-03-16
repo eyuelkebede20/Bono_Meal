@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 //The card's unique identifier, current balance, active status, and a reference back to the owner.
 
 const cardSchema = new mongoose.Schema(
@@ -27,4 +27,4 @@ const cardSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-module.exports = mongoose.model("Card", cardSchema);
+export default mongoose.model("Card", cardSchema);

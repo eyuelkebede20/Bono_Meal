@@ -12,5 +12,5 @@ userRouter.get("/:id", authMiddleware, fetchSome);
 
 userRouter.patch("/:id/approve", authMiddleware, roleMiddleware(["super_admin"]), approveUser);
 
-userRouter.get("/me/dashboard", authMiddleware, roleMiddleware(["student"]), getStudentDashboardData);
+userRouter.get("/me/dashboard", authMiddleware, roleMiddleware(["student", "military_student", "military_staff"]), getStudentDashboardData);
 export default userRouter;

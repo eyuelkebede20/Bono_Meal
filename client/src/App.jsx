@@ -19,6 +19,8 @@ const ProtectedRoute = ({ allowedRoles }) => {
 
   try {
     const decoded = jwtDecode(token);
+    console.log("Allowed Roles:", allowedRoles);
+    console.log("User Role from Token:", decoded.role);
 
     if (allowedRoles.includes(decoded.role)) {
       return <Outlet />;
@@ -38,6 +40,7 @@ export default function App() {
         <Route path="/" element={<Login />} />
         <Route path="/test" element={<TestScanner />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
 
         <Route element={<ProtectedRoute allowedRoles={["super_admin"]} />}>
@@ -52,9 +55,8 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={["security_guard", "super_admin"]} />}>
           <Route path="/security-guard" element={<SecurityGuardDashboard />} />
         </Route>
-
-        <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
-          <Route path="/student" element={<StudentDashboard />} />
+        <Route element={<ProtectedRoute allowedRoles={["student", "military_student", "military_staff"]} />}>
+          <Route path="/user" element={<StudentDashboard />} />
         </Route>
       </Routes>
     </BrowserRouter>

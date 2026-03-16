@@ -1,177 +1,208 @@
 import { useState, useEffect } from "react";
-import LogoutButton from "./LogoutButton";
+import { useNavigate } from "react-router-dom";
+import StudentAttendanceHistory from "./StudentAttendanceHistory";
 
 export default function SuperAdminDashboard() {
-  const [metrics, setMetrics] = useState({
-    cards: { active: 0, suspended: 0 },
-    today: { deductions: { totalAmount: 0 }, topUps: { totalAmount: 0 } },
-  });
-
-  const [users, setUsers] = useState([]);
-  const [pendingUsers, setPendingUsers] = useState([]);
-
-  // Number formatter
-  const formatNumber = (num) => {
-    return Number(num || 0).toLocaleString();
-  };
-
-  const fetchData = async () => {
-    const token = localStorage.getItem("token");
-
-    const metricsRes = await fetch("http://localhost:3000/api/metrics", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (metricsRes.ok) setMetrics(await metricsRes.json());
-
-    const usersRes = await fetch("http://localhost:3000/api/users", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (usersRes.ok) setUsers(await usersRes.json());
-
-    const pendingRes = await fetch("http://localhost:3000/api/users/pending", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (pendingRes.ok) setPendingUsers(await pendingRes.json());
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const handleApprove = async (userId) => {
     const token = localStorage.getItem("token");
-
     try {
-      const res = await fetch(`http://localhost:3000/api/users/${userId}/approve`, {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/${userId}/approve`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
-        fetchData();
+        // Refresh the user list after approval
+        fetchUsers();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to approve user.");
+        alert(data.error || "Approval failed");
       }
-    } catch {
-      alert("Network error while approving user.");
+    } catch (error) {
+      console.error("Approval error:", error);
+    }
+  };
+  const [users, setUsers] = useState([]);
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    eatingToday: 0,
+    thisMonthTotal: 0,
+    lastMonthTotal: 0,
+  });
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const limit = 10;
+  const navigate = useNavigate();
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [page, searchQuery]);
+
+  const fetchStats = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStats(data);
+      }
+    } catch (error) {
+      console.error("Fetch stats error:", error);
     }
   };
 
+  const fetchUsers = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users?page=${page}&limit=${limit}&search=${searchQuery}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setUsers(data.users);
+        setTotalPages(data.pagination.totalPages);
+      }
+    } catch (error) {
+      console.error("Fetch users error:", error);
+    }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setSearchQuery(searchInput);
+    setPage(1);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
   return (
-    <div className="min-h-screen bg-base-300 p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold text-primary">Super Admin Dashboard</h1>
-        <LogoutButton />
+    <div className="min-h-screen bg-base-300 p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-primary">Super Admin Dashboard</h1>
+        <button onClick={handleLogout} className="btn btn-error btn-sm">
+          Logout
+        </button>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="stat bg-base-100 shadow rounded-lg">
-          <div className="stat-title">Active Cards</div>
-          <div className="stat-value text-success">{formatNumber(metrics.cards.active)}</div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body p-4">
+            <h2 className="card-title text-sm text-gray-500">Total Students</h2>
+            <p className="text-2xl font-bold">{stats.totalStudents}</p>
+          </div>
         </div>
-
-        <div className="stat bg-base-100 shadow rounded-lg">
-          <div className="stat-title">Suspended Cards</div>
-          <div className="stat-value text-error">{formatNumber(metrics.cards.suspended)}</div>
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body p-4">
+            <h2 className="card-title text-sm text-gray-500">Eating Today</h2>
+            <p className="text-2xl font-bold">{stats.eatingToday}</p>
+          </div>
         </div>
-
-        <div className="stat bg-base-100 shadow rounded-lg">
-          <div className="stat-title">Today's Deductions</div>
-          <div className="stat-value text-warning text-xl md:text-2xl">{formatNumber(metrics.today.deductions.totalAmount)} ETB</div>
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body p-4">
+            <h2 className="card-title text-sm text-gray-500">This Month Deposits</h2>
+            <p className="text-2xl font-bold text-success">{stats.thisMonthTotal} ETB</p>
+          </div>
         </div>
-
-        <div className="stat bg-base-100 shadow rounded-lg">
-          <div className="stat-title">Today's Top Ups</div>
-          <div className="stat-value text-primary text-xl md:text-2xl">{formatNumber(metrics.today.topUps.totalAmount)} ETB</div>
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body p-4">
+            <h2 className="card-title text-sm text-gray-500">Last Month Deposits</h2>
+            <p className="text-2xl font-bold">{stats.lastMonthTotal} ETB</p>
+          </div>
         </div>
       </div>
 
-      {/* Pending Approvals */}
-      <div className="card bg-base-100 shadow-xl">
+      <div className="card w-full bg-base-100 shadow-xl mx-auto">
         <div className="card-body">
-          <h2 className="card-title text-warning">Pending Approvals ({pendingUsers.length})</h2>
-
-          {pendingUsers.length === 0 ? (
-            <p>No users pending approval.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Requested Role</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {pendingUsers.map((user) => (
-                    <tr key={user._id}>
-                      <td>
-                        {user.firstName} {user.lastName}
-                      </td>
-
-                      <td className="break-all">{user.email}</td>
-
-                      <td>
-                        <span className="badge badge-outline">{user.role}</span>
-                      </td>
-
-                      <td>
-                        <button onClick={() => handleApprove(user._id)} className="btn btn-success btn-sm">
-                          Approve
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* System Directory */}
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title text-primary">System Directory</h2>
+          <form onSubmit={handleSearch} className="mb-4 flex gap-2">
+            <input
+              type="text"
+              placeholder="Search name, phone, or ID..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="input input-bordered input-primary w-full max-w-md"
+            />
+            <button type="submit" className="btn btn-primary">
+              Search
+            </button>
+          </form>
 
           <div className="overflow-x-auto">
-            <table className="table table-zebra">
-              <thead>
+            <table className="table w-full border">
+              <thead className="bg-gray-100 text-black">
                 <tr>
                   <th>Name</th>
-                  <th>Email</th>
+                  <th>Phone</th>
                   <th>Role</th>
                   <th>Status</th>
                 </tr>
               </thead>
-
               <tbody>
-                {users.map((u) => (
-                  <tr key={u._id}>
+                {users.map((user) => (
+                  <tr key={user._id} className="hover">
                     <td>
-                      {u.firstName} {u.lastName}
+                      {["student", "military_student"].includes(user.role) ? (
+                        <button onClick={() => setSelectedStudentId(user._id)} className="text-primary hover:underline font-bold">
+                          {user.firstName} {user.lastName}
+                        </button>
+                      ) : (
+                        <span>
+                          {user.firstName} {user.lastName}
+                        </span>
+                      )}
                     </td>
-
-                    <td className="break-all">{u.email}</td>
-
+                    <td>{user.phone}</td>
+                    <td className="capitalize">{user.role.replace("_", " ")}</td>
                     <td>
-                      <span className="badge badge-outline">{u.role}</span>
+                      {user.isApproved ? (
+                        <span className="badge badge-success">Approved</span>
+                      ) : (
+                        <button onClick={() => handleApprove(user._id)} className="btn btn-xs btn-warning">
+                          Approve
+                        </button>
+                      )}
                     </td>
-
-                    <td>{u.isApproved ? <span className="badge badge-success">Approved</span> : <span className="badge badge-warning">Pending</span>}</td>
                   </tr>
                 ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="text-center py-4">
+                      No users found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+
+          <div className="flex justify-between items-center mt-4">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn btn-outline btn-sm">
+              Previous
+            </button>
+            <span className="font-bold">
+              Page {page} of {totalPages === 0 ? 1 : totalPages}
+            </span>
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0} className="btn btn-outline btn-sm">
+              Next
+            </button>
+          </div>
         </div>
       </div>
+
+      {selectedStudentId && <StudentAttendanceHistory studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 export default function Signup() {
   const navigate = useNavigate();
-  const BACKEND_URL = import.meta.env.BACKEND_URL;
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -26,25 +26,32 @@ export default function Signup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("1. Form submitted. Data:", formData); // Check if function is triggered
     setMessage(null);
     setError(null);
 
     try {
+      console.log("2. Sending fetch request to:", `${BACKEND_URL}/api/auth/signup`);
       const res = await fetch(`${BACKEND_URL}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
+      console.log("3. Response received. Status:", res.status);
       const data = await res.json();
+      console.log("4. Parsed JSON Data:", data);
 
       if (res.ok) {
+        console.log("5. Success! Setting step to 2");
         setMessage(data.message);
         setStep(2);
       } else {
+        console.log("5. Failure! Setting error state");
         setError(data.error || "Registration failed");
       }
-    } catch {
+    } catch (err) {
+      console.error("Fetch Error:", err);
       setError("Network error connecting to the server.");
     }
   };
@@ -55,7 +62,7 @@ export default function Signup() {
     setError(null);
 
     try {
-      const res = await fetch("{BACKEND_URL}/api/auth/verify-signup", {
+      const res = await fetch(`${BACKEND_URL}/api/auth/verify-signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: formData.phone, code }),
@@ -106,11 +113,13 @@ export default function Signup() {
 
                 <select name="role" value={formData.role} onChange={handleChange} className="select select-bordered select-primary w-full">
                   <option value="student">Student</option>
+                  <option value="military_student">Military Student</option>
+                  <option value="military_staff">Military Staff</option>
                   <option value="finance_admin">Finance Officer</option>
                   <option value="security_guard">Security Guard</option>
                 </select>
 
-                {formData.role === "student" && (
+                {["student", "military_student"].includes(formData.role) && (
                   <>
                     <input
                       type="text"

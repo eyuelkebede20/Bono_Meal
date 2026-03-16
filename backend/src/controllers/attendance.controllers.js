@@ -7,7 +7,7 @@ export async function recordAttendance(req, res) {
     const { phone, mealType } = req.body;
     const guardId = req.user._id;
 
-    const student = await User.findOne({ phone, role: "student" }).populate("activeCard");
+    const student = await User.findOne({ phone, role: { $in: ["student", "military_student"] } }).populate("activeCard");
     if (!student) return res.status(404).json({ error: "Student not found." });
 
     if (!student.activeCard || !student.activeCard.isActive) {

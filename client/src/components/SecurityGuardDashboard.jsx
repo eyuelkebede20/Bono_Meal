@@ -8,7 +8,7 @@ export default function SecurityGuardDashboard() {
   const [error, setError] = useState("");
   const [student, setStudent] = useState(null);
   const navigate = useNavigate();
-  const BACKEND_URL = import.meta.env.BACKEND_URL;
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
   const handleScan = async (e) => {
     e.preventDefault();
     setMessage("");

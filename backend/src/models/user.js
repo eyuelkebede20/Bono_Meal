@@ -7,11 +7,14 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, required: true, unique: true }, // Main login identifier
     role: {
       type: String,
-      enum: ["super_admin", "finance_admin", "student", "security_guard"],
+      enum: ["finance_admin", "security_guard", "super_admin", "student", "military_student", "military_staff"],
       default: "student",
+      required: true,
     },
+    password: { type: String },
     studentId: { type: String }, // Optional depending on role
     faydaId: { type: String }, // Optional
+    telegramChatId: { type: String, default: null },
     isApproved: { type: Boolean, default: false },
     activeCard: { type: mongoose.Schema.Types.ObjectId, ref: "Card" },
   },

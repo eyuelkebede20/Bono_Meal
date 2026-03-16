@@ -7,6 +7,9 @@ import adminRouter from "./src/routes/admin.transaction.routes.js";
 import runDailyDeduction from "./src/config/dailyDeduction.js";
 import topUpRoutes from "./src/routes/topups.routes.js";
 import attendanceRoutes from "./src/routes/attendance.routes.js";
+import { startCronJobs } from "./src/utils/cronJobs.js";
+import telegramRoutes from "./src/routes/telegram.js";
+import adminRoutes from "./src/routes/admin.js";
 import cors from "cors";
 
 const app = express();
@@ -19,6 +22,9 @@ app.use(
   }),
 );
 runDailyDeduction();
+startCronJobs();
+app.use("/api/telegram", telegramRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/auth", router);
 app.use("/api/users", userRouter);
 app.use("/api", adminRouter);

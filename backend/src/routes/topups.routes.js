@@ -5,7 +5,7 @@ import { authMiddleware, roleMiddleware } from "../middleware/auth.checker.js";
 const topUpRoutes = express.Router();
 
 // Only students can submit
-topUpRoutes.post("/request", authMiddleware, roleMiddleware(["student"]), submitRequest);
+topUpRoutes.post("/request", authMiddleware, roleMiddleware(["student", "military_staff"]), submitRequest);
 
 // Finance and Super Admin routes
 topUpRoutes.get("/pending", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), getPendingRequests);
