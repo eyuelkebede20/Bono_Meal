@@ -8,7 +8,6 @@ const transactionSchema = new mongoose.Schema(
       required: true,
     },
     user: {
-      // The user who performed the transaction (could be admin for manual adjustments)
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
