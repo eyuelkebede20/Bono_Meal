@@ -6,6 +6,7 @@ import Transaction from "../models/Transaction.js";
 import jwt from "jsonwebtoken";
 import BlacklistedToken from "../models/BlacklistedToken.js";
 import { sendTelegramOTP } from "../utils/otpSender.js";
+import { bot } from "../config/telegramBot.js";
 import Otp from "../models/Otp.js";
 
 export const signup = async (req, res) => {
@@ -138,7 +139,7 @@ export async function resetPassword(req, res) {
     if (!otpRecord) return res.status(400).json({ error: "Invalid or expired OTP." });
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await User.findOneAndUpdate({ phone }, { passwordHash });
+    await User.findOneAndUpdate({ phone }, { password: passwordHash });
 
     await Otp.deleteOne({ _id: otpRecord._id });
 
@@ -152,23 +153,25 @@ export async function requestOtp(req, res) {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: "Phone number is required" });
 
-    // Generate a 6-digit OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const user = await User.findOne({ phone });
+    if (!user) return res.status(404).json({ error: "User not found." });
 
-    // Save to database (upsert if they requested another one quickly)
+    // Hard stop if they haven't talked to the bot yet
+    if (!user.telegramChatId) {
+      return res.status(400).json({ error: "Telegram not linked. Please message the bot first to receive OTPs." });
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, new: true });
 
-    // TODO: Call your Third-Party Telegram/SMS API here
-    // await sendTelegramOTP(phone, code);
+    await bot.sendMessage(user.telegramChatId, `Your password reset OTP is: ${code}`);
 
-    // For testing, just log it:
-    console.log(`Sending OTP ${code} to ${phone}`);
-
-    res.status(200).json({ message: "OTP sent successfully" });
+    res.status(200).json({ message: "OTP sent to Telegram successfully." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
+
 export async function verifyOtp(req, res) {
   try {
     const { phone, code } = req.body;
