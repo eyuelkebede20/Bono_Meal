@@ -93,6 +93,11 @@ export default function ForgotPassword() {
           )}
 
           <div className="flex justify-center mt-4 text-sm">
+            {error.includes("Telegram not linked") && (
+              <a href="https://t.me/bon_card_otp_bot" target="_blank" rel="noopener noreferrer" className="btn btn-info w-full mt-2">
+                Message @bon_card_otp_bot
+              </a>
+            )}
             <Link to="/login" className="link link-primary">
               Back to Login
             </Link>
