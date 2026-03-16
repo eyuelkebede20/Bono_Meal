@@ -11,51 +11,56 @@ import Otp from "../models/Otp.js";
 
 export const signup = async (req, res) => {
   try {
-    const { phone, password, role /* other fields... */ } = req.body;
+    let { firstName, lastName, phone, password, role, studentId, faydaId } = req.body;
 
+    // 1. Sanitize phone
+    phone = phone.replace(/\D/g, "");
+
+    // 2. Check if user is already FULLY registered (not just a shell)
     const existingUser = await User.findOne({ phone });
-    if (existingUser) return res.status(400).json({ error: "Phone number already registered." });
+    if (existingUser && existingUser.password) {
+      return res.status(400).json({ error: "This phone number is already registered and active." });
+    }
 
-    // 1. Check if they linked Telegram first
-    // We search by phone variations to be safe
-    const cleanPhone = phone.replace(/\D/g, "");
-    const phoneVariations = [cleanPhone, `+${cleanPhone}`];
-    if (cleanPhone.startsWith("251")) phoneVariations.push(`0${cleanPhone.substring(3)}`);
+    // 3. Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
 
-    // We look for any "shell" user created by the bot or just check the phone
-    const linkedUser = await User.findOne({ phone: { $in: phoneVariations } });
+    // 4. Update existing shell or create new (Upsert)
+    const userData = {
+      firstName,
+      lastName,
+      password: passwordHash,
+      role,
+      studentId: ["student", "military_student"].includes(role) ? studentId : undefined,
+      faydaId: ["student", "military_student"].includes(role) ? faydaId : undefined,
+      isApproved: false,
+    };
 
-    if (!linkedUser || !linkedUser.telegramChatId) {
+    const user = await User.findOneAndUpdate({ phone }, { $set: userData }, { upsert: true, returnDocument: "after" });
+
+    // 5. Verify Telegram Link
+    if (!user.telegramChatId) {
       return res.status(400).json({
         error: "Telegram not linked. Please message @bon_card_otp_bot first to verify your phone.",
       });
     }
 
-    // 2. Hash password and save the full user
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    // Update the existing linked record instead of creating a new one
-    linkedUser.password = passwordHash;
-    linkedUser.role = role;
-    linkedUser.isApproved = false;
-    // ... map other fields ...
-    await linkedUser.save();
-
-    // 3. Generate and Send OTP to Telegram
+    // 6. Generate and Send OTP to Telegram
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, returnDocument: "after" });
+    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true });
 
-    await bot.sendMessage(linkedUser.telegramChatId, `Your Signup Verification OTP is: ${code}`);
+    await bot.sendMessage(user.telegramChatId, `Your Signup Verification OTP is: ${code}`);
 
-    res.status(201).json({ message: "Signup successful. OTP sent to Telegram." });
+    res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 export async function verifySignup(req, res) {
   try {
-    const { phone, code } = req.body;
+    let { phone, code } = req.body;
+    phone = phone.replace(/\D/g, ""); // Clean it!
 
     const otpRecord = await Otp.findOne({ phone, code });
     if (!otpRecord) return res.status(400).json({ error: "Invalid or expired OTP." });
