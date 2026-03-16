@@ -26,7 +26,7 @@ export const startCronJobs = () => {
           card: person.activeCard._id,
           type: "deposit",
           amount: amount,
-          description: "Monthly Military Allowance",
+          description: "Monthly Military Allowance!",
         });
       }
       console.log("Military monthly allowance distributed.");
