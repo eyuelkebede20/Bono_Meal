@@ -9,7 +9,7 @@ import runDailyDeduction from "./src/config/dailyDeduction.js";
 import topUpRoutes from "./src/routes/topups.routes.js";
 import attendanceRoutes from "./src/routes/attendance.routes.js";
 import { startCronJobs } from "./src/utils/cronJobs.js";
-import telegramRoutes from "./src/routes/telegram.js";
+import telegramRoutes from "./src/config/telegram.js";
 import adminRoutes from "./src/routes/admin.js";
 
 const app = express();

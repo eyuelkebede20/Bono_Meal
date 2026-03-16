@@ -6,7 +6,7 @@ import Transaction from "../models/Transaction.js";
 import jwt from "jsonwebtoken";
 import BlacklistedToken from "../models/BlacklistedToken.js";
 import { sendTelegramOTP } from "../utils/otpSender.js";
-import { bot } from "../config/telegramBot.js";
+import { bot } from "../config/telegram.js";
 import Otp from "../models/Otp.js";
 
 export const signup = async (req, res) => {
