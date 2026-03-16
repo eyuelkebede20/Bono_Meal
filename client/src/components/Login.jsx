@@ -72,7 +72,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-base-300 px-4">
       <div className="card w-full max-w-md bg-base-100 shadow-xl">
         <div className="card-body">
-          <h2 className="card-title justify-center text-primary text-2xl font-bold">Bon-Card Login</h2>
+          <h2 className="card-title justify-center text-primary text-2xl font-bold">Bono-Meal-Card Login</h2>
 
           {error && <div className="alert alert-error text-sm">{error}</div>}
 
