@@ -1,6 +1,6 @@
 import Attendance from "../models/Attendance.js";
-import User from "../models/User.js";
 import Card from "../models/Card.js";
+import User from "../models/User.js";
 
 export async function recordAttendance(req, res) {
   try {
