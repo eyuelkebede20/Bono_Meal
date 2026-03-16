@@ -25,7 +25,6 @@ app.use(
 );
 app.use(express.json());
 
-// Routes
 app.use("/api/telegram", telegramRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", router);
