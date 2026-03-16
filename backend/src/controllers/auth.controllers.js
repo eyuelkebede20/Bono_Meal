@@ -164,7 +164,7 @@ export async function requestOtp(req, res) {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, new: true });
 
-    await bot.sendMessage(user.telegramChatId, `Your password reset OTP is: ${code}`);
+    await sendTelegramOTP(phone, code);
 
     res.status(200).json({ message: "OTP sent to Telegram successfully." });
   } catch (error) {
