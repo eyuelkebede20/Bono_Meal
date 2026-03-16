@@ -19,9 +19,8 @@ jobs:
 
       - name: Build Frontend
         working-directory: ./client
-        env:
-          VITE_BACKEND_URL: https://apibonomeal.senaycreatives.com
         run: |
+          echo "VITE_BACKEND_URL=https://apibonomeal.senaycreatives.com" > .env
           npm install
           npm run build
 
