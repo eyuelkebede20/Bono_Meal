@@ -12,6 +12,7 @@ export default function SuperAdminDashboard() {
   });
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [haltRequests, setHaltRequests] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
@@ -19,6 +20,28 @@ export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+  const fetchPendingHalts = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/halt?status=pending_admin`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHaltRequests(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch halt requests:", error);
+    }
+  };
+  const approveHalt = async (id) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${BACKEND_URL}/api/halt/${id}/approve`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) fetchPendingHalts(); // Refresh list
+  };
   const toggleUserStatus = async (userId) => {
     const token = localStorage.getItem("token");
     try {
@@ -40,7 +63,9 @@ export default function SuperAdminDashboard() {
   useEffect(() => {
     fetchStats();
   }, []);
-
+  useEffect(() => {
+    fetchPendingHalts();
+  }, []);
   useEffect(() => {
     fetchUsers();
   }, [page, searchQuery]);
@@ -196,7 +221,48 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
       </div>
-
+      <div className="mt-10 p-6 bg-base-100 rounded-box shadow">
+        <h2 className="font-bold text-xl mb-4 text-warning">Pending Halt Requests</h2>
+        {haltRequests.length === 0 ? (
+          <p>No pending requests.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table w-full">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Reason</th>
+                  <th>Evidence</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {haltRequests.map((req) => (
+                  <tr key={req._id}>
+                    <td>
+                      {req.user?.firstName} {req.user?.lastName}
+                    </td>
+                    <td>{req.reason}</td>
+                    <td>
+                      <img
+                        src={req.imageUrl}
+                        alt="evidence"
+                        className="h-16 w-16 object-cover rounded cursor-pointer hover:scale-150 transition-transform"
+                        onClick={() => window.open(req.imageUrl, "_blank")}
+                      />
+                    </td>
+                    <td>
+                      <button onClick={() => approveHalt(req._id)} className="btn btn-warning btn-sm">
+                        Approve to Finance
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
       {selectedStudentId && <StudentAttendanceHistory studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} />}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import StudentTopUpRequest from "./StudentTopUpRequest";
+import HaltAccountForm from "./HaltAccountForm";
 
 export default function StudentDashboard() {
   const [data, setData] = useState(null);
@@ -187,6 +188,10 @@ export default function StudentDashboard() {
               </table>
             </div>
           </div>
+        </div>
+
+        <div className="card bg-base-100 shadow-xl">
+          <HaltAccountForm />
         </div>
 
         {/* Attendance History */}

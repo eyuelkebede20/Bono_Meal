@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable"; // Change this line
 import "jspdf-autotable";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import LogoutButton from "./LogoutButton";
@@ -37,13 +38,23 @@ export default function CafeLordDashboard() {
   const generatePDF = () => {
     if (!stats) return;
     const doc = new jsPDF();
-    const dateStr = new Date().toLocaleDateString();
+    const dateStr = new Date().toISOString().split("T")[0];
 
     doc.setFontSize(18);
     doc.text("BonoMeal Cafe Lord - Daily Analytics", 14, 22);
 
-    doc.autoTable({
-      startY: doc.lastAutoTable.finalY + 15,
+    // Use the explicit autoTable function instead of doc.autoTable
+    autoTable(doc, {
+      startY: 30,
+      head: [["Category", "Value"]],
+      body: [["Total Active Users", stats.activeUsers || 0], ...(stats.registrationStats || []).map((s) => [s.role?.toUpperCase(), s.count])],
+    });
+
+    // Fallback variable to prevent crash
+    const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 80;
+
+    autoTable(doc, {
+      startY: finalY + 15,
       head: [["Meal", "Yesterday", "Today"]],
       body: [
         ["Breakfast", stats.yesterdayMeals?.breakfast || 0, stats.todayMeals?.breakfast || 0],
