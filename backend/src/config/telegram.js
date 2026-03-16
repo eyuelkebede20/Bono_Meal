@@ -1,4 +1,13 @@
-import User from "../models/user.model.js";
+import express from "express";
+import TelegramBot from "node-telegram-bot-api";
+import "dotenv/config";
+import User from "../models/User.js";
+
+const telegramBotRoute = express.Router();
+
+// Initialize bot
+const token = process.env.TELEGRAM_BOT_TOKEN;
+export const bot = new TelegramBot(token, { polling: true });
 
 // 1. Listen for the /start command
 bot.onText(/\/start/, (msg) => {
@@ -18,16 +27,16 @@ bot.on("contact", async (msg) => {
   const chatId = msg.chat.id;
   let phone = msg.contact.phone_number;
 
-  // Sanitize phone to match your database format (e.g., remove '+')
+  // Sanitize phone
   if (phone.startsWith("+")) {
     phone = phone.substring(1);
   }
 
   try {
     const user = await User.findOneAndUpdate(
-      { phone }, // Ensure this matches how phone numbers are saved in your DB
+      { phone }, 
       { telegramChatId: chatId },
-      { new: true },
+      { new: true }
     );
 
     if (!user) {
@@ -35,10 +44,12 @@ bot.on("contact", async (msg) => {
     }
 
     bot.sendMessage(chatId, "Account linked successfully. You can now receive OTPs here.", {
-      reply_markup: { remove_keyboard: true }, // Removes the contact sharing button
+      reply_markup: { remove_keyboard: true }, 
     });
   } catch (error) {
     console.error("Telegram Link Error:", error);
     bot.sendMessage(chatId, "An error occurred while linking your account.");
   }
 });
+
+export default telegramBotRoute;
