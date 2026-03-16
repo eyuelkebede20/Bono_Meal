@@ -9,6 +9,26 @@ import Unauthorized from "./components/Unauthorized";
 import TestScanner from "./components/TestScanner";
 import ForgotPassword from "./components/ForgotPassword";
 import Signup from "./components/Signup";
+import CafeLordDashboard from "./components/CafeLordDashboard";
+import EmergencyRegister from "./components/EmergencyRegister";
+
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
+const NotFound = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Clear everything: token, user preferences, etc.
+    localStorage.clear();
+    // Optional: sessionStorage.clear();
+
+    // Redirect to login (which is at "/" in your config)
+    navigate("/", { replace: true });
+  }, [navigate]);
+
+  return null; // Renders nothing while redirecting
+};
 
 const ProtectedRoute = ({ allowedRoles }) => {
   const token = localStorage.getItem("token");
@@ -37,27 +57,42 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Login />} />
         <Route path="/test" element={<TestScanner />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
+        {/* Protected Routes */}
         <Route element={<ProtectedRoute allowedRoles={["super_admin"]} />}>
           <Route path="/super-admin" element={<SuperAdminDashboard />} />
         </Route>
-        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         <Route element={<ProtectedRoute allowedRoles={["finance_admin", "super_admin"]} />}>
           <Route path="/finance-admin" element={<FinanceDashboard />} />
         </Route>
 
+        <Route element={<ProtectedRoute allowedRoles={["finance_admin", "super_admin", "security_guard"]} />}>
+          <Route path="/emergency-register" element={<EmergencyRegister />} />
+        </Route>
+
         <Route element={<ProtectedRoute allowedRoles={["security_guard", "super_admin"]} />}>
           <Route path="/security-guard" element={<SecurityGuardDashboard />} />
         </Route>
+
         <Route element={<ProtectedRoute allowedRoles={["student", "military_student", "military_staff"]} />}>
           <Route path="/user" element={<StudentDashboard />} />
         </Route>
+        <Route element={<ProtectedRoute allowedRoles={["cafe_lord", "super_admin"]} />}>
+          <Route path="/cafe-dashboard" element={<CafeLordDashboard />} />
+        </Route>
+
+        {/* CATCH-ALL ROUTE 
+            This must stay at the very bottom 
+        */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

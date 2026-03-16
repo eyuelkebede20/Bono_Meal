@@ -3,25 +3,6 @@ import { useNavigate } from "react-router-dom";
 import StudentAttendanceHistory from "./StudentAttendanceHistory";
 
 export default function SuperAdminDashboard() {
-  const handleApprove = async (userId) => {
-    const token = localStorage.getItem("token");
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/users/${userId}/approve`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        // Refresh the user list after approval
-        fetchUsers();
-      } else {
-        const data = await res.json();
-        alert(data.error || "Approval failed");
-      }
-    } catch (error) {
-      console.error("Approval error:", error);
-    }
-  };
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -38,6 +19,24 @@ export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+  const toggleUserStatus = async (userId) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/${userId}/toggle`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        fetchUsers(); // Refresh list
+      } else {
+        const data = await res.json();
+        alert(data.error || "Toggle failed");
+      }
+    } catch (error) {
+      console.error("Toggle error:", error);
+    }
+  };
   useEffect(() => {
     fetchStats();
   }, []);
@@ -167,13 +166,9 @@ export default function SuperAdminDashboard() {
                     <td>{user.phone}</td>
                     <td className="capitalize">{user.role.replace("_", " ")}</td>
                     <td>
-                      {user.isApproved ? (
-                        <span className="badge badge-success">Approved</span>
-                      ) : (
-                        <button onClick={() => handleApprove(user._id)} className="btn btn-xs btn-warning">
-                          Approve
-                        </button>
-                      )}
+                      <button onClick={() => toggleUserStatus(user._id)} className={`btn btn-xs ${user.isApproved ? "btn-error" : "btn-warning"}`}>
+                        {user.isApproved ? "Disapprove" : "Approve"}
+                      </button>
                     </td>
                   </tr>
                 ))}

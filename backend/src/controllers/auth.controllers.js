@@ -48,8 +48,7 @@ export const signup = async (req, res) => {
 
     // 6. Generate and Send OTP to Telegram
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true });
-
+    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, returnDocument: "after" });
     await bot.sendMessage(user.telegramChatId, `Your Signup Verification OTP is: ${code}`);
 
     res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
@@ -153,7 +152,7 @@ export async function requestOtp(req, res) {
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, new: true });
+    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, returnDocument: "after" });
 
     await sendTelegramOTP(phone, code);
 
@@ -235,5 +234,42 @@ export const forgotPassword = async (req, res) => {
   } catch (error) {
     console.error("9. DEBUG ERROR in forgotPassword:", error);
     res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
+};
+
+// controllers/authController.js
+
+export const emergencyRegister = async (req, res) => {
+  try {
+    const { firstName, lastName, phone, studentId } = req.body;
+
+    // 1. Check if the user already exists
+    const existingUser = await User.findOne({ phone });
+    if (existingUser) {
+      return res.status(400).json({ error: "Phone number already registered" });
+    }
+
+    // 2. Create the new user
+    // We set isVerified to true immediately to skip OTP
+    const newUser = new User({
+      firstName,
+      lastName,
+      phone,
+      studentId,
+      isVerified: true,
+      role: "student", // Default role
+      registeredBy: req.user._id, // Track which guard performed the registration
+      createdAt: new Date(),
+    });
+
+    await newUser.save();
+
+    res.status(201).json({
+      message: "Emergency registration complete",
+      student: newUser,
+    });
+  } catch (error) {
+    console.error("Emergency Reg Error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -5,7 +5,7 @@ export default function StudentTopUpRequest({ onUploadSuccess }) {
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();

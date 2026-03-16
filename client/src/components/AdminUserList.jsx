@@ -8,7 +8,7 @@ export default function AdminUserList() {
   const [totalPages, setTotalPages] = useState(1);
 
   const limit = 10;
-  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
   useEffect(() => {
     fetchUsers();
   }, [page, searchQuery]);

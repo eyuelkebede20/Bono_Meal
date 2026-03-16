@@ -10,6 +10,7 @@ import topUpRoutes from "./src/routes/topups.routes.js";
 import attendanceRoutes from "./src/routes/attendance.routes.js";
 import { startCronJobs } from "./src/utils/cronJobs.js";
 import telegramRoutes from "./src/config/telegram.js";
+import cafeRoutes from "./src/routes/cafe.routes.js";
 import adminRoutes from "./src/routes/admin.js";
 
 const app = express();
@@ -18,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(
   cors({
-    origin: ["https://bonomeal.senaycreatives.com", "http://localhost:5173", "https://apibonomeal.senaycreatives.com/"],
+    origin: ["https://bonomeal.senaycreatives.com", "https://localhost:5173", "https://apibonomeal.senaycreatives.com/"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   }),
@@ -32,7 +33,7 @@ app.use("/api/users", userRouter);
 app.use("/api", adminRouter);
 app.use("/api/topups", topUpRoutes);
 app.use("/api/attendance", attendanceRoutes);
-
+app.use("/api/cafe", cafeRoutes);
 // Connect DB first, then start server and jobs
 app.listen(PORT, async () => {
   try {

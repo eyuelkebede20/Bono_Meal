@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import mongoose from "mongoose";
 import Transaction from "../models/Transaction.js";
 import Attendance from "../models/Attendance.js";
 
@@ -37,12 +38,48 @@ export const getSystemStats = async (req, res) => {
 
 export const approveUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await User.findByIdAndUpdate(id, { isApproved: true }, { new: true });
+    const { userId } = req.params;
 
+    // Validate if it's a valid MongoDB ObjectId first
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid User ID format" });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      console.log(`User ID ${userId} not found in DB`);
+      return res.status(404).json({ error: "User not found in database." });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, { $set: { isApproved: !user.isApproved } }, { returnDocument: "after" });
+
+    res.status(200).json({
+      message: `User ${updatedUser.isApproved ? "Approved" : "Disapproved"}`,
+      user: updatedUser,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const toggleApproval = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    res.status(200).json({ message: "User approved successfully", user });
+    // Flip the status
+    user.isApproved = !user.isApproved;
+
+    // Save bypassing strict validation for shell accounts
+    await User.findByIdAndUpdate(userId, { isApproved: user.isApproved });
+
+    res.status(200).json({
+      message: `User is now ${user.isApproved ? "Approved" : "Disapproved"}`,
+      isApproved: user.isApproved,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -3,7 +3,7 @@ import { useState } from "react";
 export default function CanteenScanner() {
   const [cardNumber, setCardNumber] = useState("");
   const [scanResult, setScanResult] = useState(null);
-  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
   const handleScan = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");

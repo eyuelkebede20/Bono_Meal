@@ -8,9 +8,8 @@ export default function FinanceDashboard() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
-
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
   const navigate = useNavigate();
-  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
 
   useEffect(() => {
     fetchPendingRequests();

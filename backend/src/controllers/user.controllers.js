@@ -114,14 +114,15 @@ export async function topUpUser(req, res) {
   }
 }
 
-export async function approveUser(req, res) {
+export const approveUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { isApproved: true }, { new: true }).select("-password"); // Exclude password from response
+    const { userId } = req.params;
+    const { isApproved } = req.body; // Read the boolean from the frontend
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const user = await User.findByIdAndUpdate(userId, { isApproved }, { returnDocument: "after" });
 
-    res.json({ message: "User approved successfully", user });
+    res.status(200).json({ message: "User status updated", user });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-}
+};

@@ -23,16 +23,15 @@ export default function Login() {
         if (role === "super_admin") navigate("/super-admin");
         else if (role === "finance_admin") navigate("/finance-admin");
         else if (role === "security_guard") navigate("/security-guard");
+        else if (role === "cafe_lord") navigate("/cafe-dashboard");
         else navigate("/user");
       } catch {
         localStorage.removeItem("token");
       }
     }
   }, [navigate]);
-
   const handleLogin = async (e) => {
     e.preventDefault();
-
     if (loading) return;
 
     setError("");
@@ -53,9 +52,12 @@ export default function Login() {
         const decoded = jwtDecode(data.token);
         const role = data.role || decoded.role;
 
+        // UPDATED LOGIC HERE
         if (role === "super_admin") navigate("/super-admin");
         else if (role === "finance_admin") navigate("/finance-admin");
         else if (role === "security_guard") navigate("/security-guard");
+        else if (role === "cafe_lord")
+          navigate("/cafe-dashboard"); // ADD THIS LINE
         else navigate("/user");
       } else {
         setError(data.error || "Login failed");
@@ -66,7 +68,6 @@ export default function Login() {
 
     setLoading(false);
   };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-base-300 px-4">
       <div className="card w-full max-w-md bg-base-100 shadow-xl">

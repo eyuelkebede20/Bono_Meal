@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function LogoutButton() {
   const navigate = useNavigate();
-  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
   const handleLogout = async () => {
     const token = localStorage.getItem("token");
 
