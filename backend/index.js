@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(
   cors({
-    origin: ["https://bonomeal.senaycreatives.com", "http://localhost:5173"],
+    origin: ["https://bonomeal.senaycreatives.com", "http://localhost:5173", "https://apibonomeal.senaycreatives.com/"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   }),
