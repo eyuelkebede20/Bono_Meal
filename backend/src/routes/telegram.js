@@ -1,5 +1,5 @@
 import express from "express";
-import User from "../models/Use.js";
+import User from "../models/User.js";
 
 const telegramRoutes = express.Router();
 

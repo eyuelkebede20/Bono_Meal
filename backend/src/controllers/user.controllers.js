@@ -1,8 +1,8 @@
 import express from "express";
 import mongoose from "mongoose";
-import User from "../models/Use.js";
-import Card from "../models/Car.js";
-import Transaction from "../models/Transactio.js";
+import User from "../models/User.js";
+import Card from "../models/Card.js";
+import Transaction from "../models/Transaction.js";
 export async function fetchAllUsers(req, res) {
   try {
     const page = parseInt(req.query.page) || 1;

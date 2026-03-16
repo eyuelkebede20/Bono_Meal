@@ -1,5 +1,5 @@
-import User from "../models/Use.js";
-import Transaction from "../models/Transactio.js";
+import User from "../models/User.js";
+import Transaction from "../models/Transaction.js";
 import Attendance from "../models/Attendance.js";
 
 export const getSystemStats = async (req, res) => {

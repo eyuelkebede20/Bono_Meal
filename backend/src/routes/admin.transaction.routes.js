@@ -1,8 +1,8 @@
 import express from "express";
 import { authMiddleware, roleMiddleware } from "../middleware/auth.checker.js";
-import Transaction from "../models/Transactio.js";
+import Transaction from "../models/Transaction.js";
 import { topUpUser } from "../controllers/user.controllers.js";
-import Card from "../models/Car.js";
+import Card from "../models/Card.js";
 
 const adminRouter = express.Router();
 

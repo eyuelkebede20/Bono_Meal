@@ -1,4 +1,4 @@
-import User from "../models/Use.js";
+import User from "../models/User.js";
 
 export const sendTelegramOTP = async (phone, code) => {
   const user = await User.findOne({ phone });
