@@ -16,7 +16,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors()); // Missing in your code
+app.use(
+  cors({
+    origin: ["https://bonomeal.senaycreatives.com", "http://localhost:5173"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 // Routes
