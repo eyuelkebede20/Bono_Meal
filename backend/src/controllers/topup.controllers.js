@@ -1,7 +1,7 @@
 import TopUpRequest from "../models/TopUpRequest.js";
-import Card from "../models/Card.js";
-import Transaction from "../models/Transaction.js";
-import User from "../models/User.js";
+import Card from "../models/Car.js";
+import Transaction from "../models/Transactio.js";
+import User from "../models/Use.js";
 
 // Student submits bank transfer details
 export async function submitRequest(req, res) {

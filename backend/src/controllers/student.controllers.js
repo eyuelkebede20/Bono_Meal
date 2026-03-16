@@ -1,8 +1,8 @@
-import User from "../models/User.js";
-import Transaction from "../models/Transaction.js";
+import User from "../models/Use.js";
+import Transaction from "../models/Transactio.js";
 import TopUpRequest from "../models/TopUpRequest.js";
 import Attendance from "../models/Attendance.js";
-import Card from "../models/Card.js";
+import Card from "../models/Car.js";
 
 export async function getStudentDashboardData(req, res) {
   try {

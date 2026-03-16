@@ -1,8 +1,8 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import User from "../models/User.js";
-import Card from "../models/Card.js";
-import Transaction from "../models/Transaction.js";
+import User from "../models/Use.js";
+import Card from "../models/Car.js";
+import Transaction from "../models/Transactio.js";
 import jwt from "jsonwebtoken";
 import BlacklistedToken from "../models/BlacklistedToken.js";
 import { sendTelegramOTP } from "../utils/otpSender.js";

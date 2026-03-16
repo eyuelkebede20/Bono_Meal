@@ -1,8 +1,8 @@
 // utils/cronJobs.js
 import cron from "node-cron";
-import User from "../models/User.js";
-import Card from "../models/Card.js";
-import Transaction from "../models/Transaction.js";
+import User from "../models/Use.js";
+import Card from "../models/Car.js";
+import Transaction from "../models/Transactio.js";
 
 export const startCronJobs = () => {
   // Runs at 00:00 on day-of-month 1
