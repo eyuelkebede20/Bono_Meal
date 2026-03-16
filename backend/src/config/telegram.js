@@ -27,24 +27,25 @@ bot.on("contact", async (msg) => {
   const chatId = msg.chat.id;
   let phone = msg.contact.phone_number;
 
-  // Sanitize phone
+  // 1. Fix string handling: Remove all spaces, dashes, and parentheses
+  phone = phone.replace(/[\s\-()]/g, "");
+
+  // Remove leading '+' if present to match your DB
   if (phone.startsWith("+")) {
     phone = phone.substring(1);
   }
 
   try {
-    const user = await User.findOneAndUpdate(
-      { phone }, 
-      { telegramChatId: chatId },
-      { new: true }
-    );
+    // 3. Fix Mongoose deprecation warning
+    const user = await User.findOneAndUpdate({ phone }, { telegramChatId: chatId }, { returnDocument: "after" });
 
     if (!user) {
       return bot.sendMessage(chatId, "No account found with this phone number. Please sign up on the website first.");
     }
 
-    bot.sendMessage(chatId, "Account linked successfully. You can now receive OTPs here.", {
-      reply_markup: { remove_keyboard: true }, 
+    // 2. Send explicit confirmation
+    bot.sendMessage(chatId, "✅ Account updated successfully! Your Telegram is now linked. Go back to the website and click 'Send OTP'.", {
+      reply_markup: { remove_keyboard: true },
     });
   } catch (error) {
     console.error("Telegram Link Error:", error);
