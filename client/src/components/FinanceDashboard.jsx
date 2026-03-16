@@ -10,7 +10,7 @@ export default function FinanceDashboard() {
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
-  const BACKEND_URL = "http://localhost:3000";
+  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
 
   useEffect(() => {
     fetchPendingRequests();

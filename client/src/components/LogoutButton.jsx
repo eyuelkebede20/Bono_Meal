@@ -2,13 +2,13 @@ import { useNavigate } from "react-router-dom";
 
 export default function LogoutButton() {
   const navigate = useNavigate();
-
+  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
   const handleLogout = async () => {
     const token = localStorage.getItem("token");
 
     if (token) {
       try {
-        await fetch("http://localhost:3000/api/auth/logout", {
+        await fetch(`${BACKEND_URL}/api/auth/logout`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,

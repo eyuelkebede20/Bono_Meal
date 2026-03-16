@@ -3,13 +3,13 @@ import { useState } from "react";
 export default function CanteenScanner() {
   const [cardNumber, setCardNumber] = useState("");
   const [scanResult, setScanResult] = useState(null);
-
+  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
   const handleScan = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("http://localhost:3000/api/canteen/scan", {
+      const res = await fetch(`${BACKEND_URL}/api/canteen/scan`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

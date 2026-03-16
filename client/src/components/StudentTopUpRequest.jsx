@@ -5,6 +5,7 @@ export default function StudentTopUpRequest({ onUploadSuccess }) {
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -12,7 +13,7 @@ export default function StudentTopUpRequest({ onUploadSuccess }) {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:3000/api/topups/request", {
+      const response = await fetch(`${BACKEND_URL}/api/topups/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -8,7 +8,7 @@ export default function AdminUserList() {
   const [totalPages, setTotalPages] = useState(1);
 
   const limit = 10;
-
+  const BACKEND_URL = import.meta.VITE_BACKEND_URL;
   useEffect(() => {
     fetchUsers();
   }, [page, searchQuery]);
@@ -17,7 +17,7 @@ export default function AdminUserList() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch(`http://localhost:3000/api/users?page=${page}&limit=${limit}&search=${searchQuery}`, {
+      const res = await fetch(`${BACKEND_URL}/api/users?page=${page}&limit=${limit}&search=${searchQuery}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
