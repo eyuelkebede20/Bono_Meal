@@ -13,7 +13,7 @@ import adminRoutes from "./src/routes/admin.js";
 import cors from "cors";
 
 const app = express();
-
+const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(
   cors({
@@ -31,7 +31,7 @@ app.use("/api", adminRouter);
 app.use("/api/topups", topUpRoutes);
 app.use("/api/attendance", attendanceRoutes);
 
-app.listen(process.env.PORT, () => {
+app.listen(PORT, () => {
   try {
     connectDb(process.env.MONGO_URI);
     console.log("app is loading perfectly");
