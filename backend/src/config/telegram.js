@@ -22,28 +22,30 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(chatId, "Welcome to Bon-Card! Please share your phone number to link your account for password resets.", opts);
 });
 
-// 2. Listen for the shared contact
 bot.on("contact", async (msg) => {
   const chatId = msg.chat.id;
-  let phone = msg.contact.phone_number;
 
-  // 1. Fix string handling: Remove all spaces, dashes, and parentheses
-  phone = phone.replace(/[\s\-()]/g, "");
+  // Clean it up completely (extract only digits)
+  let cleanPhone = msg.contact.phone_number.replace(/\D/g, "");
 
-  // Remove leading '+' if present to match your DB
-  if (phone.startsWith("+")) {
-    phone = phone.substring(1);
+  // Create variations to check against your DB
+  const phoneVariations = [
+    cleanPhone, // e.g., 251954956260
+    `+${cleanPhone}`, // e.g., +251954956260
+  ];
+
+  // Handle local 09 format
+  if (cleanPhone.startsWith("251")) {
+    phoneVariations.push(`0${cleanPhone.substring(3)}`); // e.g., 0954956260
   }
 
   try {
-    // 3. Fix Mongoose deprecation warning
-    const user = await User.findOneAndUpdate({ phone }, { telegramChatId: chatId }, { returnDocument: "after" });
+    const user = await User.findOneAndUpdate({ phone: { $in: phoneVariations } }, { telegramChatId: chatId }, { returnDocument: "after" });
 
     if (!user) {
       return bot.sendMessage(chatId, "No account found with this phone number. Please sign up on the website first.");
     }
 
-    // 2. Send explicit confirmation
     bot.sendMessage(chatId, "✅ Account updated successfully! Your Telegram is now linked. Go back to the website and click 'Send OTP'.", {
       reply_markup: { remove_keyboard: true },
     });
@@ -52,5 +54,4 @@ bot.on("contact", async (msg) => {
     bot.sendMessage(chatId, "An error occurred while linking your account.");
   }
 });
-
 export default telegramBotRoute;
