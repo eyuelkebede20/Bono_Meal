@@ -248,7 +248,8 @@ export const emergencyRegister = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: "Phone number already registered" });
     }
-    const salt = bcrypt.genSalt(10);
+
+    const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
     // 2. Create the new user
