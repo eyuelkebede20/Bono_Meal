@@ -241,13 +241,15 @@ export const forgotPassword = async (req, res) => {
 
 export const emergencyRegister = async (req, res) => {
   try {
-    const { firstName, lastName, phone, studentId } = req.body;
+    const { firstName, lastName, password, phone, studentId } = req.body;
 
     // 1. Check if the user already exists
     const existingUser = await User.findOne({ phone });
     if (existingUser) {
       return res.status(400).json({ error: "Phone number already registered" });
     }
+    const salt = bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
 
     // 2. Create the new user
     // We set isVerified to true immediately to skip OTP
@@ -255,6 +257,7 @@ export const emergencyRegister = async (req, res) => {
       firstName,
       lastName,
       phone,
+      password: passwordHash,
       studentId,
       isVerified: true,
       role: "student", // Default role

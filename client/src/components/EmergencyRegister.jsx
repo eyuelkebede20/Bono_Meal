@@ -82,6 +82,10 @@ export default function EmergencyRegister() {
                 <label className="label text-xs font-bold">PHONE NUMBER</label>
                 <input name="phone" type="tel" required placeholder="e.g. 0912345678" className="input input-bordered focus:input-warning text-lg" onChange={handleChange} />
               </div>
+              <div className="form-control">
+                <label className="label text-xs font-bold">PASSWORD</label>
+                <input name="password" type="password" required placeholder="****" className="input input-bordered focus:input-warning text-lg" onChange={handleChange} />
+              </div>
 
               <div className="form-control">
                 <label className="label text-xs font-bold">STUDENT ID (OPTIONAL)</label>
