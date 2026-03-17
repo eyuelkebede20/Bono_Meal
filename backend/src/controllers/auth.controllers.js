@@ -21,7 +21,10 @@ export const signup = async (req, res) => {
     if (existingUser && existingUser.password) {
       return res.status(400).json({ error: "This phone number is already registered and active." });
     }
-
+    const isLinked = await TelegramLink.findOne({ phone });
+    if (!isLinked) {
+      return res.status(400).json({ error: "Phone number is not linked with Telegram." });
+    }
     // 3. Hash the password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
@@ -241,7 +244,7 @@ export const forgotPassword = async (req, res) => {
 
 export const emergencyRegister = async (req, res) => {
   try {
-    const { firstName, lastName, password, phone, studentId } = req.body;
+    const { firstName, lastName, password, phone, studentId, role } = req.body;
 
     // 1. Check if the user already exists
     const existingUser = await User.findOne({ phone });
@@ -251,7 +254,6 @@ export const emergencyRegister = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-
     // 2. Create the new user
     // We set isVerified to true immediately to skip OTP
     const newUser = new User({
@@ -261,7 +263,7 @@ export const emergencyRegister = async (req, res) => {
       password: passwordHash,
       studentId,
       isVerified: true,
-      role: "student", // Default role
+      role, // Default role
       registeredBy: req.user._id, // Track which guard performed the registration
       createdAt: new Date(),
     });

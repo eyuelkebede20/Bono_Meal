@@ -39,7 +39,7 @@ export default function EmergencyRegister() {
       if (response.ok) {
         setStatus({ type: "success", msg: "✅ Registration Successful!" });
         // Optional: Redirect back after a delay
-        setTimeout(() => navigate("/dashboard"), 2000);
+        setTimeout(() => navigate("/security-guard"), 2000);
       } else {
         setStatus({ type: "error", msg: `❌ ${data.error || "Registration failed"}` });
       }
@@ -53,7 +53,7 @@ export default function EmergencyRegister() {
   return (
     <div className="min-h-screen bg-base-300 p-4">
       <div className="max-w-lg mx-auto mt-10">
-        <button onClick={() => navigate("/dashboard")} className="btn btn-ghost mb-4">
+        <button onClick={() => navigate("/security-guard")} className="btn btn-ghost mb-4">
           ← Back to Dashboard
         </button>
 
@@ -90,6 +90,15 @@ export default function EmergencyRegister() {
               <div className="form-control">
                 <label className="label text-xs font-bold">STUDENT ID (OPTIONAL)</label>
                 <input name="studentId" type="text" className="input input-bordered focus:input-warning" onChange={handleChange} />
+              </div>
+              <div>
+                <select name="role" value={formData.role} onChange={handleChange} className="select select-bordered w-full">
+                  <option value="student">Student</option>
+                  <option value="military_student">Military Student</option>
+                  <option value="military_staff">Military Staff</option>
+
+                  <option value="security_guard">Security Guard</option>
+                </select>
               </div>
 
               <button type="submit" disabled={loading} className={`btn btn-warning btn-lg w-full mt-4 ${loading ? "loading" : ""}`}>
