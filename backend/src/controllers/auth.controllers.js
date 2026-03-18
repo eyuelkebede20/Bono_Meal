@@ -21,44 +21,45 @@ export const signup = async (req, res) => {
     if (existingUser && existingUser.password) {
       return res.status(400).json({ error: "This phone number is already registered and active." });
     }
-
     // 3. Verify Telegram Link AND get the Chat ID
-    const telegramInfo = await User.findOne({ phone });
-    if (!telegramInfo) {
-      return res.status(400).json({ error: "Phone number is not linked with Telegram. Message the bot first." });
+    if (existingUser && existingUser.telegramChatId) {
+      // 4. Hash the password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // 5. Build User Data (Including the Chat ID from TelegramLink)
+      const userData = {
+        firstName,
+        lastName,
+        password: hashedPassword, // Match your schema field name
+        role, // CRITICAL: Transfer from TelegramLink to User
+        studentId: ["student", "military_student"].includes(role) ? studentId : undefined,
+        faydaId: ["student", "military_student"].includes(role) ? faydaId : undefined,
+        isApproved: false,
+      };
+
+      const user = await User.findOneAndUpdate(
+        { phone },
+        { $set: userData },
+        { upsert: true, new: true }, // 'new: true' is the same as 'returnDocument: "after"'
+      );
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true });
+
+      await bot.sendMessage(user.telegramChatId, `Your Signup Verification OTP is: <code>${code}</code>`, { parse_mode: "HTML" });
+      res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
+
+      if (user.role === "military_student") {
+        await Card.create({
+          cardNumber: user.studentId,
+          owner: user._id,
+          balance: 3000,
+          isActive: false,
+        });
+      }
+    } else {
+      res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
     }
-
-    // 4. Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // 5. Build User Data (Including the Chat ID from TelegramLink)
-    const userData = {
-      firstName,
-      lastName,
-      password: hashedPassword, // Match your schema field name
-      role,
-      telegramChatId: telegramInfo.chatId, // CRITICAL: Transfer from TelegramLink to User
-      studentId: ["student", "military_student"].includes(role) ? studentId : undefined,
-      faydaId: ["student", "military_student"].includes(role) ? faydaId : undefined,
-      isApproved: false,
-    };
-
-    // 6. Update or Create
-    const user = await User.findOneAndUpdate(
-      { phone },
-      { $set: userData },
-      { upsert: true, new: true }, // 'new: true' is the same as 'returnDocument: "after"'
-    );
-
-    // 7. Generate and Send OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Use { upsert: true } for OTP so it creates if missing, updates if exists
-    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true });
-
-    await bot.sendMessage(user.telegramChatId, `Your Signup Verification OTP is: <code>${code}</code>`, { parse_mode: "HTML" });
-    res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
   } catch (error) {
     console.error("Signup Error:", error.message);
     res.status(500).json({ error: error.message });
@@ -203,17 +204,17 @@ export async function verifyOtp(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
-const generateAndSendOtp = async (phone) => {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+// const generateAndSendOtp = async (phone) => {
+//   const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-  // Save to DB
-  await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, new: true });
+//   // Save to DB
+//   await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, new: true });
 
-  // Trigger external API
-  await sendTelegramOTP(phone, code);
+//   // Trigger external API
+//   await sendTelegramOTP(phone, code);
 
-  return code;
-};
+//   return code;
+// };
 export const forgotPassword = async (req, res) => {
   console.log("1. Reached forgotPassword controller. Body:", req.body);
   try {

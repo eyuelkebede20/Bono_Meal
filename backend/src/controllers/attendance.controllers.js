@@ -52,7 +52,6 @@ export async function getStudentAttendance(req, res) {
   try {
     const { studentId } = req.params;
     const history = await Attendance.find({ student: studentId }).populate("scannedBy", "firstName lastName").sort({ date: -1 });
-
     res.status(200).json(history);
   } catch (error) {
     res.status(500).json({ error: error.message });
