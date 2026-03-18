@@ -23,7 +23,7 @@ export const signup = async (req, res) => {
     }
 
     // 3. Verify Telegram Link AND get the Chat ID
-    const telegramInfo = await TelegramLink.findOne({ phone });
+    const telegramInfo = await User.findOne({ phone });
     if (!telegramInfo) {
       return res.status(400).json({ error: "Phone number is not linked with Telegram. Message the bot first." });
     }
@@ -57,8 +57,7 @@ export const signup = async (req, res) => {
     // Use { upsert: true } for OTP so it creates if missing, updates if exists
     await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true });
 
-    await bot.sendMessage(user.telegramChatId, `Your Signup Verification OTP is: ${code}`);
-
+    await bot.sendMessage(user.telegramChatId, `Your Signup Verification OTP is: <code>${code}</code>`, { parse_mode: "HTML" });
     res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
   } catch (error) {
     console.error("Signup Error:", error.message);

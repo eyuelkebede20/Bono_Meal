@@ -36,7 +36,7 @@ bot.on("contact", async (msg) => {
       { returnDocument: "after", upsert: true },
     );
 
-    bot.sendMessage(chatId, "✅ Phone verified! You can now complete your Signup or Password Reset on the website.", {
+    bot.sendMessage(chatId, "✅ Phone verified! You can now complete your Proceed to the website.", {
       reply_markup: { remove_keyboard: true },
     });
   } catch (error) {
