@@ -58,7 +58,7 @@ export const signup = async (req, res) => {
         });
       }
     } else {
-      res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
+      res.status(201).json({ message: "Please Link your phone number to the system" });
     }
   } catch (error) {
     console.error("Signup Error:", error.message);
