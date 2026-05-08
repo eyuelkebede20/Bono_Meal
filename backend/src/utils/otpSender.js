@@ -1,7 +1,9 @@
-import User from "../models/User.js";
+import { db } from "../config/db.js";
+import { users } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 
 export const sendTelegramOTP = async (phone, code) => {
-  const user = await User.findOne({ phone });
+  const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
 
   if (!user || !user.telegramChatId) {
     throw new Error("User has not linked their Telegram account.");

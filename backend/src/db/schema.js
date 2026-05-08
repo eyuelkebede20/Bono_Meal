@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, boolean, numeric, pgEnum, text } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, integer, boolean, numeric, pgEnum, text } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // ==========================================
@@ -43,6 +43,7 @@ export const users = pgTable("users", {
   activeCardId: uuid("active_card_id"), // Foreign key added in relations
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  tokenVersion: integer("token_version").default(0).notNull(),
   approvedById: uuid("approved_by_id"),
 });
 

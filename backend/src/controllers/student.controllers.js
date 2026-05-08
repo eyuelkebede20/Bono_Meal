@@ -1,40 +1,62 @@
-import User from "../models/User.js";
-import Transaction from "../models/Transaction.js";
-import TopUpRequest from "../models/TopUpRequest.js";
-import Attendance from "../models/Attendance.js";
-import Card from "../models/Card.js";
+import { db } from "../config/db.js";
+import { users, cards, transactions, topUpRequests, attendance } from "../db/schema.js";
+import { eq, ne, and, desc } from "drizzle-orm";
 
 export async function getStudentDashboardData(req, res) {
   try {
-    const studentId = req.user._id;
-    const student = await User.findById(studentId).select("-passwordHash");
+    const studentId = req.user.id;
+
+    // Fetch student explicitly excluding the password
+    const [student] = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        phone: users.phone,
+        role: users.role,
+        studentId: users.studentId,
+        faydaId: users.faydaId,
+        telegramChatId: users.telegramChatId,
+        isApproved: users.isApproved,
+        mealPlanType: users.mealPlanType,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .where(eq(users.id, studentId))
+      .limit(1);
 
     if (!student) return res.status(404).json({ error: "Student not found" });
 
-    const card = await Card.findOne({ owner: studentId });
-    const topUpRequests = await TopUpRequest.find({ student: studentId }).sort({ createdAt: -1 });
-    const attendance = await Attendance.find({ student: studentId }).sort({ date: -1 });
+    // Run independent queries concurrently
+    const [[card], userTopUpRequests, userAttendance] = await Promise.all([
+      db.select().from(cards).where(eq(cards.ownerId, studentId)).limit(1),
+      db.select().from(topUpRequests).where(eq(topUpRequests.studentId, studentId)).orderBy(desc(topUpRequests.createdAt)),
+      db.select().from(attendance).where(eq(attendance.studentId, studentId)).orderBy(desc(attendance.date)),
+    ]);
 
-    let transactions = [];
-    let balance = 0;
+    let userTransactions = [];
+    let balance = "0.00"; // Note: Numeric types return as strings in Postgres to prevent precision loss
 
     if (card) {
-      balance = card.balance || 0;
-      transactions = await Transaction.find({
-        card: card._id,
-        type: { $ne: "reversal" },
-      }).sort({ createdAt: -1 });
+      balance = card.balance;
+
+      userTransactions = await db
+        .select()
+        .from(transactions)
+        .where(and(eq(transactions.cardId, card.id), ne(transactions.type, "reversal")))
+        .orderBy(desc(transactions.createdAt));
     }
 
-    const uniqueDays = new Set(attendance.map((a) => new Date(a.date).toDateString()));
+    const uniqueDays = new Set(userAttendance.map((a) => new Date(a.date).toDateString()));
     const daysEaten = uniqueDays.size;
 
     res.status(200).json({
       student,
       balance,
-      topUpRequests,
-      attendance,
-      transactions,
+      topUpRequests: userTopUpRequests,
+      attendance: userAttendance,
+      transactions: userTransactions,
       daysEaten,
     });
   } catch (error) {

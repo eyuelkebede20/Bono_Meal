@@ -2,10 +2,9 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { eq, and } from "drizzle-orm";
 import { db } from "../config/db.js"; // Adjust path if needed
-import { users, cards, otps } from "../schema.js"; // Adjust path
+import { users, cards, otps } from "../db/schema.js"; // Adjust path
 import { sendTelegramOTP } from "../utils/otpSender.js";
 import { bot } from "../config/telegram.js";
-import redisClient from "../config/redis.js"; // Requires Redis setup
 
 export const signup = async (req, res) => {
   try {
@@ -101,12 +100,24 @@ export async function verifySignup(req, res) {
   }
 }
 
+const generateTokens = (user) => {
+  const accessToken = jwt.sign(
+    { id: user.id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "15m" }, // 15 minutes
+  );
+  const refreshToken = jwt.sign(
+    { id: user.id, tokenVersion: user.tokenVersion },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: "7d" }, // 7 days
+  );
+  return { accessToken, refreshToken };
+};
+
 export async function login(req, res) {
   try {
     const { phone, password } = req.body;
-    if (!phone || !password) {
-      return res.status(400).json({ error: "Phone and password are required." });
-    }
+    if (!phone || !password) return res.status(400).json({ error: "Phone and password are required." });
 
     const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
 
@@ -115,33 +126,80 @@ export async function login(req, res) {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(400).json({ error: "Invalid credentials" });
 
-    if (!user.isApproved) {
-      return res.status(403).json({ error: "Your account is pending Super Admin approval." });
-    }
+    if (!user.isApproved) return res.status(403).json({ error: "Your account is pending Super Admin approval." });
 
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
-
-    res.json({ token, role: user.role });
+    const tokens = generateTokens(user);
+    res.json({ ...tokens, role: user.role });
   } catch (error) {
     res.status(500).json({ error: error.message });
-    console.log(error);
+  }
+}
+
+export async function verifyOtp(req, res) {
+  try {
+    const { phone, code } = req.body;
+    const [otpRecord] = await db
+      .select()
+      .from(otps)
+      .where(and(eq(otps.phone, phone), eq(otps.code, code)))
+      .limit(1);
+
+    if (!otpRecord) return res.status(400).json({ error: "Invalid or expired OTP" });
+    await db.delete(otps).where(eq(otps.id, otpRecord.id));
+
+    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+
+    if (!user) return res.status(404).json({ error: "User not found." });
+    if (!user.isApproved) return res.status(403).json({ error: "Account pending approval." });
+
+    const tokens = generateTokens(user);
+    res.status(200).json({ ...tokens, role: user.role, user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 }
 
 export async function logout(req, res) {
   try {
-    const authHeader = req.header("Authorization");
+    const userId = req.user.id; // requires authMiddleware on the route
 
-    if (!authHeader) {
-      return res.status(400).json({ error: "Authorization header missing" });
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (user) {
+      // Increment tokenVersion to kill all active refresh tokens
+      await db
+        .update(users)
+        .set({ tokenVersion: user.tokenVersion + 1 })
+        .where(eq(users.id, userId));
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    res.status(200).json({ message: "Successfully logged out." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
 
-    // Redis implementation: set token with 24hr expiry (86400 seconds)
-    await redisClient.set(`bl_${token}`, "true", "EX", 86400);
+export async function refreshAccessToken(req, res) {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(401).json({ error: "Refresh token required." });
 
-    res.status(200).json({ message: "Successfully logged out on the server." });
+    let payload;
+    try {
+      payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    } catch (err) {
+      return res.status(403).json({ error: "Invalid or expired refresh token." });
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, payload.id)).limit(1);
+    if (!user) return res.status(404).json({ error: "User not found." });
+
+    // Validate token version
+    if (user.tokenVersion !== payload.tokenVersion) {
+      return res.status(403).json({ error: "Session invalidated. Please log in again." });
+    }
+
+    const tokens = generateTokens(user);
+    res.json(tokens);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -159,7 +217,15 @@ export async function resetPassword(req, res) {
     if (!otpRecord) return res.status(400).json({ error: "Invalid or expired OTP." });
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await db.update(users).set({ password: passwordHash }).where(eq(users.phone, phone));
+
+    // Fetch user to increment tokenVersion (logs them out of other devices)
+    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+
+    await db
+      .update(users)
+      .set({ password: passwordHash, tokenVersion: user ? user.tokenVersion + 1 : 0 })
+      .where(eq(users.phone, phone));
+
     await db.delete(otps).where(eq(otps.id, otpRecord.id));
 
     res.status(200).json({ message: "Password reset successful." });
@@ -193,32 +259,6 @@ export async function requestOtp(req, res) {
     await sendTelegramOTP(phone, code);
 
     res.status(200).json({ message: "OTP sent to Telegram successfully." });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-}
-
-export async function verifyOtp(req, res) {
-  try {
-    const { phone, code } = req.body;
-
-    const [otpRecord] = await db
-      .select()
-      .from(otps)
-      .where(and(eq(otps.phone, phone), eq(otps.code, code)))
-      .limit(1);
-    if (!otpRecord) return res.status(400).json({ error: "Invalid or expired OTP" });
-
-    await db.delete(otps).where(eq(otps.id, otpRecord.id));
-
-    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
-
-    if (!user) return res.status(404).json({ error: "User not found. Please register first." });
-    if (!user.isApproved) return res.status(403).json({ error: "Account pending approval." });
-
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
-
-    res.status(200).json({ token, role: user.role, user });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

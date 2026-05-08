@@ -1,15 +1,15 @@
 import express from "express";
 import TelegramBot from "node-telegram-bot-api";
 import "dotenv/config";
-import User from "../models/User.js";
+import { db } from "../config/db.js";
+import { users } from "../db/schema.js";
+import { inArray, eq } from "drizzle-orm";
 
 const telegramBotRoute = express.Router();
 
-// Initialize bot
 const token = process.env.TELEGRAM_BOT_TOKEN;
 export const bot = new TelegramBot(token, { polling: true });
 
-// 1. Listen for the /start command
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const opts = {
@@ -23,24 +23,37 @@ bot.onText(/\/start/, (msg) => {
 });
 
 bot.on("contact", async (msg) => {
-  const chatId = msg.chat.id;
+  const chatId = msg.chat.id.toString();
   let cleanPhone = msg.contact.phone_number.replace(/\D/g, "");
   const phoneVariations = [cleanPhone, `+${cleanPhone}`];
   if (cleanPhone.startsWith("251")) phoneVariations.push(`0${cleanPhone.substring(3)}`);
 
   try {
-    // upsert: true means if the user doesn't exist, create a shell record with the phone and chatId
-    const user = await User.findOneAndUpdate(
-      { phone: { $in: phoneVariations } },
-      { telegramChatId: chatId, phone: cleanPhone }, // ensure phone is saved
-      { returnDocument: "after", upsert: true },
-    );
+    // 1. Check if user exists using any of the phone variations
+    const [existingUser] = await db.select().from(users).where(inArray(users.phone, phoneVariations)).limit(1);
 
-    bot.sendMessage(chatId, "✅ Phone verified! You can now complete your Proceed to the website.", {
+    if (existingUser) {
+      // 2. Update existing user
+      await db.update(users).set({ telegramChatId: chatId }).where(eq(users.id, existingUser.id));
+    } else {
+      // 3. Insert new shell user (using Telegram name data for NOT NULL fields)
+      await db.insert(users).values({
+        firstName: msg.from?.first_name || "Pending",
+        lastName: msg.from?.last_name || "User",
+        phone: cleanPhone,
+        telegramChatId: chatId,
+        role: "student",
+        isApproved: false,
+      });
+    }
+
+    bot.sendMessage(chatId, "✅ Phone verified! You can now proceed to the website.", {
       reply_markup: { remove_keyboard: true },
     });
   } catch (error) {
     bot.sendMessage(chatId, "Error linking phone.");
+    console.error(error);
   }
 });
+
 export default telegramBotRoute;

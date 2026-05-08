@@ -1,5 +1,6 @@
-import User from "../models/User.js";
-import Attendance from "../models/Attendance.js";
+import { db } from "../config/db.js";
+import { users, attendance } from "../db/schema.js";
+import { eq, inArray, and, gte, lt, count } from "drizzle-orm";
 
 export const getCafeLordStats = async (req, res) => {
   try {
@@ -9,39 +10,51 @@ export const getCafeLordStats = async (req, res) => {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const activeUsers = await User.countDocuments({ isApproved: true });
+    // 1. Get active users
+    const [activeUsersResult] = await db.select({ value: count() }).from(users).where(eq(users.isApproved, true));
 
-    const roles = ["student", "military_student", "military_staff", "finance_admin"];
-    const registrationStats = await Promise.all(
-      roles.map(async (role) => {
-        const count = await User.countDocuments({ role });
-        return { role, count };
-      }),
-    );
+    const activeUsers = Number(activeUsersResult.value);
 
+    // 2. Get registration stats (Optimized to a single GROUP BY query)
+    const targetRoles = ["student", "military_student", "military_staff", "finance_admin"];
+    const roleCounts = await db
+      .select({
+        role: users.role,
+        count: count(),
+      })
+      .from(users)
+      .where(inArray(users.role, targetRoles))
+      .groupBy(users.role);
+
+    // Map to ensure all target roles exist in the output even if count is 0
+    const registrationStats = targetRoles.map((role) => {
+      const found = roleCounts.find((r) => r.role === role);
+      return { role, count: found ? Number(found.count) : 0 };
+    });
+
+    // 3. Helper to get meal stats (Optimized to use the database mealType enum)
     const getMealStats = async (dateGte, dateLt) => {
-      const attendance = await Attendance.find({
-        createdAt: { $gte: dateGte, $lt: dateLt },
-      });
+      const mealCounts = await db
+        .select({
+          mealType: attendance.mealType,
+          count: count(),
+        })
+        .from(attendance)
+        .where(and(gte(attendance.createdAt, dateGte), lt(attendance.createdAt, dateLt)))
+        .groupBy(attendance.mealType);
 
-      return {
-        breakfast: attendance.filter((a) => {
-          const h = new Date(a.createdAt).getHours();
-          return h >= 6 && h < 10;
-        }).length,
-        lunch: attendance.filter((a) => {
-          const h = new Date(a.createdAt).getHours();
-          return h >= 11 && h < 15;
-        }).length,
-        dinner: attendance.filter((a) => {
-          const h = new Date(a.createdAt).getHours();
-          return h >= 18 && h < 22;
-        }).length,
-      };
+      // Format to match old output
+      const stats = { breakfast: 0, lunch: 0, dinner: 0 };
+      mealCounts.forEach((row) => {
+        if (stats[row.mealType] !== undefined) {
+          stats[row.mealType] = Number(row.count);
+        }
+      });
+      return stats;
     };
 
-    const todayMeals = await getMealStats(today, new Date());
-    const yesterdayMeals = await getMealStats(yesterday, today);
+    // Run today and yesterday queries concurrently
+    const [todayMeals, yesterdayMeals] = await Promise.all([getMealStats(today, new Date()), getMealStats(yesterday, today)]);
 
     res.status(200).json({
       activeUsers,

@@ -1,112 +1,127 @@
 import express from "express";
 import { authMiddleware, roleMiddleware } from "../middleware/auth.checker.js";
-import Transaction from "../models/Transaction.js";
 import { topUpUser } from "../controllers/user.controllers.js";
-import Card from "../models/Card.js";
+import { db } from "../config/db.js";
+import { transactions, cards, users } from "../db/schema.js";
+import { eq, and, desc, gte, sum, count } from "drizzle-orm";
 
 const adminRouter = express.Router();
 
 // GET /api/transactions
-
 adminRouter.get("/transactions", authMiddleware, async (req, res) => {
   try {
     const { role, id } = req.user;
-    let query = {};
+
+    // Build the base query using Drizzle's relational syntax
+    let query = db.query.transactions.findMany({
+      orderBy: [desc(transactions.createdAt)],
+      with: {
+        card: {
+          columns: { cardNumber: true },
+          with: {
+            owner: {
+              columns: { firstName: true, lastName: true, studentId: true },
+            },
+          },
+        },
+        user: {
+          columns: { firstName: true, lastName: true },
+        },
+      },
+    });
 
     if (role === "student") {
-      const card = await Card.findOne({ owner: id });
-      if (!card) {
+      // 1. Get the student's active card
+      const [studentCard] = await db.select().from(cards).where(eq(cards.ownerId, id)).limit(1);
+
+      if (!studentCard) {
         return res.status(404).json({ error: "Card not found for this user." });
       }
-      query.card = card._id;
+
+      // 2. Filter transactions by that card
+      query = db.query.transactions.findMany({
+        where: eq(transactions.cardId, studentCard.id),
+        orderBy: [desc(transactions.createdAt)],
+        with: {
+          card: {
+            columns: { cardNumber: true },
+            with: {
+              owner: { columns: { firstName: true, lastName: true, studentId: true } },
+            },
+          },
+          user: { columns: { firstName: true, lastName: true } },
+        },
+      });
     }
 
-    const transactions = await Transaction.find(query)
-      .populate({
-        path: "card",
-        select: "cardNumber",
-        populate: {
-          path: "owner",
-          select: "firstName lastName studentId",
-        },
-      })
-      .populate("user", "firstName lastName")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json(transactions);
+    const result = await query;
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+// GET /api/metrics
 adminRouter.get("/metrics", authMiddleware, roleMiddleware(["super_admin", "finance_admin"]), async (req, res) => {
   try {
-    const totalActiveCards = await Card.countDocuments({ isActive: true });
-    const totalSuspendedCards = await Card.countDocuments({ isActive: false });
+    // 1. Count Active/Suspended Cards
+    const [activeCardsResult] = await db.select({ value: count() }).from(cards).where(eq(cards.isActive, true));
+    const [suspendedCardsResult] = await db.select({ value: count() }).from(cards).where(eq(cards.isActive, false));
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const todayDeductions = await Transaction.aggregate([
-      {
-        $match: {
-          type: "daily_deduction",
-          createdAt: { $gte: startOfDay },
-          status: "completed",
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$amount" },
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+    // 2. Aggregate Today's Deductions
+    const [todayDeductions] = await db
+      .select({
+        totalAmount: sum(transactions.amount),
+        count: count(),
+      })
+      .from(transactions)
+      .where(and(eq(transactions.type, "daily_deduction"), eq(transactions.status, "completed"), gte(transactions.createdAt, startOfDay)));
 
-    const todayTopUps = await Transaction.aggregate([
-      {
-        $match: {
-          type: "top_up",
-          createdAt: { $gte: startOfDay },
-          status: "completed",
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$amount" },
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+    // 3. Aggregate Today's Top Ups
+    const [todayTopUps] = await db
+      .select({
+        totalAmount: sum(transactions.amount),
+        count: count(),
+      })
+      .from(transactions)
+      .where(and(eq(transactions.type, "top_up"), eq(transactions.status, "completed"), gte(transactions.createdAt, startOfDay)));
 
     res.status(200).json({
       cards: {
-        active: totalActiveCards,
-        suspended: totalSuspendedCards,
+        active: Number(activeCardsResult.value) || 0,
+        suspended: Number(suspendedCardsResult.value) || 0,
       },
       today: {
-        deductions: todayDeductions[0] || { totalAmount: 0, count: 0 },
-        topUps: todayTopUps[0] || { totalAmount: 0, count: 0 },
+        deductions: {
+          totalAmount: Number(todayDeductions?.totalAmount) || 0,
+          count: Number(todayDeductions?.count) || 0,
+        },
+        topUps: {
+          totalAmount: Number(todayTopUps?.totalAmount) || 0,
+          count: Number(todayTopUps?.count) || 0,
+        },
       },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+// POST /api/transactions/suspend
 adminRouter.post("/transactions/suspend", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), async (req, res) => {
   try {
     const { cardNumber } = req.body;
 
-    const card = await Card.findOne({ cardNumber });
+    const [card] = await db.select().from(cards).where(eq(cards.cardNumber, cardNumber)).limit(1);
     if (!card) return res.status(404).json({ error: "Card not found" });
-
     if (!card.isActive) return res.status(400).json({ error: "Card is already suspended." });
 
-    card.isActive = false;
-    await card.save();
+    const [updatedCard] = await db.update(cards).set({ isActive: false }).where(eq(cards.id, card.id)).returning();
 
-    res.json({ message: "Card successfully suspended.", card });
+    res.json({ message: "Card successfully suspended.", card: updatedCard });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -117,41 +132,49 @@ adminRouter.post("/transactions/activate", authMiddleware, roleMiddleware(["fina
   try {
     const { cardNumber } = req.body;
 
-    const card = await Card.findOne({ cardNumber });
+    const [card] = await db.select().from(cards).where(eq(cards.cardNumber, cardNumber)).limit(1);
     if (!card) return res.status(404).json({ error: "Card not found" });
-
     if (card.isActive) return res.status(400).json({ error: "Card is already active." });
 
-    card.isActive = true;
-    await card.save();
+    const [updatedCard] = await db.update(cards).set({ isActive: true }).where(eq(cards.id, card.id)).returning();
 
-    res.json({ message: "Card successfully activated.", card });
+    res.json({ message: "Card successfully activated.", card: updatedCard });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+// POST /api/scan
 adminRouter.post("/scan", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), async (req, res) => {
   try {
     const { cardNumber } = req.body;
 
-    const card = await Card.findOne({ cardNumber }).populate("owner");
+    // Use Inner Join to get card and owner together (Mongoose .populate equivalent)
+    const [result] = await db
+      .select({
+        card: cards,
+        owner: users,
+      })
+      .from(cards)
+      .innerJoin(users, eq(cards.ownerId, users.id))
+      .where(eq(cards.cardNumber, cardNumber))
+      .limit(1);
 
-    if (!card) {
+    if (!result) {
       return res.status(404).json({ valid: false, message: "Card not found" });
     }
 
-    if (!card.isActive) {
+    if (!result.card.isActive) {
       return res.status(403).json({ valid: false, message: "Card is suspended (Insufficient Funds)" });
     }
 
-    // If card is active, it means the daily deduction succeeded.
     res.status(200).json({
       valid: true,
       message: "Meal approved",
       student: {
-        firstName: card.owner.firstName,
-        lastName: card.owner.lastName,
-        studentId: card.owner.studentId,
+        firstName: result.owner.firstName,
+        lastName: result.owner.lastName,
+        studentId: result.owner.studentId,
       },
     });
   } catch (error) {
@@ -159,22 +182,24 @@ adminRouter.post("/scan", authMiddleware, roleMiddleware(["finance_admin", "supe
   }
 });
 
+// GET /api/transactions/user/:id
 adminRouter.get("/transactions/user/:id", authMiddleware, async (req, res) => {
   try {
     const userId = req.params.id;
 
-    // 1. Find the card belonging to this user
-    const card = await Card.findOne({ owner: userId });
-    if (!card) return res.status(200).json([]); // Return empty array if no card found
+    // 1. Find the card
+    const [card] = await db.select().from(cards).where(eq(cards.ownerId, userId)).limit(1);
+    if (!card) return res.status(200).json([]);
 
     // 2. Find transactions for that card
-    const transactions = await Transaction.find({ card: card._id }).sort({ createdAt: -1 });
+    const userTransactions = await db.select().from(transactions).where(eq(transactions.cardId, card.id)).orderBy(desc(transactions.createdAt));
 
-    res.status(200).json(transactions);
+    res.status(200).json(userTransactions);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 adminRouter.post("/transactions/topup", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), topUpUser);
 
 export default adminRouter;
