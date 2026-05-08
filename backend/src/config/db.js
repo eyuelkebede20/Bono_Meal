@@ -1,12 +1,7 @@
-import mongoose from "mongoose";
+import "dotenv/config";
 
-const connectDb = (uri) => {
-  try {
-    mongoose.connect(uri);
-    console.log("Connected to db successfully!");
-  } catch (error) {
-    console.log(error);
-  }
-};
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
-export default connectDb;
+export const db = drizzle(pool, { schema });

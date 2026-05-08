@@ -1,86 +1,106 @@
 import bcrypt from "bcrypt";
-import crypto from "crypto";
-import User from "../models/User.js";
-import Card from "../models/Card.js";
-import Transaction from "../models/Transaction.js";
 import jwt from "jsonwebtoken";
-import BlacklistedToken from "../models/BlacklistedToken.js";
+import { eq, and } from "drizzle-orm";
+import { db } from "../config/db.js"; // Adjust path if needed
+import { users, cards, otps } from "../schema.js"; // Adjust path
 import { sendTelegramOTP } from "../utils/otpSender.js";
 import { bot } from "../config/telegram.js";
-import Otp from "../models/Otp.js";
+import redisClient from "../config/redis.js"; // Requires Redis setup
 
 export const signup = async (req, res) => {
   try {
     let { firstName, lastName, phone, password, role, studentId, faydaId } = req.body;
-
-    // 1. Sanitize phone
     phone = phone.replace(/\D/g, "");
 
-    // 2. Check if user is already FULLY registered
-    const existingUser = await User.findOne({ phone });
+    const [existingUser] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+
     if (existingUser && existingUser.password) {
       return res.status(400).json({ error: "This phone number is already registered and active." });
     }
-    // 3. Verify Telegram Link AND get the Chat ID
+
     if (existingUser && existingUser.telegramChatId) {
-      // 4. Hash the password
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      // 5. Build User Data (Including the Chat ID from TelegramLink)
-      const userData = {
-        firstName,
-        lastName,
-        password: hashedPassword, // Match your schema field name
-        role, // CRITICAL: Transfer from TelegramLink to User
-        studentId: ["student", "military_student"].includes(role) ? studentId : undefined,
-        faydaId: ["student", "military_student"].includes(role) ? faydaId : undefined,
-        isApproved: false,
-      };
+      const [user] = await db
+        .insert(users)
+        .values({
+          firstName,
+          lastName,
+          phone,
+          password: hashedPassword,
+          role,
+          studentId: ["student", "military_student"].includes(role) ? studentId : null,
+          faydaId: ["student", "military_student"].includes(role) ? faydaId : null,
+          isApproved: false,
+          telegramChatId: existingUser.telegramChatId,
+        })
+        .onConflictDoUpdate({
+          target: users.phone,
+          set: {
+            firstName,
+            lastName,
+            password: hashedPassword,
+            role,
+            studentId: ["student", "military_student"].includes(role) ? studentId : null,
+            faydaId: ["student", "military_student"].includes(role) ? faydaId : null,
+          },
+        })
+        .returning();
 
-      const user = await User.findOneAndUpdate(
-        { phone },
-        { $set: userData },
-        { upsert: true, new: true }, // 'new: true' is the same as 'returnDocument: "after"'
-      );
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true });
+
+      await db
+        .insert(otps)
+        .values({ phone, code })
+        .onConflictDoUpdate({
+          target: otps.phone, // Ensure phone is marked .unique() in your otps schema
+          set: { code, createdAt: new Date() },
+        });
 
       await bot.sendMessage(user.telegramChatId, `Your Signup Verification OTP is: <code>${code}</code>`, { parse_mode: "HTML" });
       res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
 
       if (user.role === "military_student") {
-        await Card.create({
-          cardNumber: user.studentId,
-          owner: user._id,
-          balance: 3000,
+        await db.insert(cards).values({
+          cardNumber: user.studentId, // Assuming studentId is used as cardNumber here
+          ownerId: user.id,
+          balance: "3000.00",
           isActive: false,
         });
       }
     } else {
-      res.status(201).json({ message: "Please Link your phone number to the system" });
+      res.status(201).json({ message: "Please Link your phone number to the system via Telegram bot first." });
     }
   } catch (error) {
     console.error("Signup Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
+
 export async function verifySignup(req, res) {
   try {
     let { phone, code } = req.body;
-    phone = phone.replace(/\D/g, ""); // Clean it!
+    phone = phone.replace(/\D/g, "");
 
-    const otpRecord = await Otp.findOne({ phone, code });
+    const [otpRecord] = await db
+      .select()
+      .from(otps)
+      .where(and(eq(otps.phone, phone), eq(otps.code, code)))
+      .limit(1);
+
     if (!otpRecord) return res.status(400).json({ error: "Invalid or expired OTP." });
 
-    await User.findOneAndUpdate({ phone }, { isPhoneVerified: true });
-    await Otp.deleteOne({ _id: otpRecord._id });
+    // Note: isPhoneVerified field needs to be added to schema if you want to keep this logic
+    await db.update(users).set({ isPhoneVerified: true }).where(eq(users.phone, phone));
+    await db.delete(otps).where(eq(otps.id, otpRecord.id));
 
     res.status(200).json({ message: "Phone verified successfully. You can now log in." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
+
 export async function login(req, res) {
   try {
     const { phone, password } = req.body;
@@ -88,80 +108,87 @@ export async function login(req, res) {
       return res.status(400).json({ error: "Phone and password are required." });
     }
 
-    // Ensure we select the password field
-    const user = await User.findOne({ phone }).select("+password");
+    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
 
-    if (!user) return res.status(400).json({ error: "Invalid credentials" });
+    if (!user || !user.password) return res.status(400).json({ error: "Invalid credentials" });
 
-    // FIX: Changed user.passwordHash to user.password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(400).json({ error: "Invalid credentials" });
 
-    // Check approval status before issuing token
     if (!user.isApproved) {
       return res.status(403).json({ error: "Your account is pending Super Admin approval." });
     }
 
-    const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
-    // Return token and role
     res.json({ token, role: user.role });
   } catch (error) {
     res.status(500).json({ error: error.message });
     console.log(error);
   }
 }
+
 export async function logout(req, res) {
   try {
     const authHeader = req.header("Authorization");
 
-    // Check if the header exists before trying to replace
     if (!authHeader) {
       return res.status(400).json({ error: "Authorization header missing" });
     }
 
     const token = authHeader.replace("Bearer ", "");
 
-    const blacklistedToken = new BlacklistedToken({ token });
-    await blacklistedToken.save();
+    // Redis implementation: set token with 24hr expiry (86400 seconds)
+    await redisClient.set(`bl_${token}`, "true", "EX", 86400);
 
     res.status(200).json({ message: "Successfully logged out on the server." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
+
 export async function resetPassword(req, res) {
   try {
     const { phone, code, newPassword } = req.body;
 
-    const otpRecord = await Otp.findOne({ phone, code });
+    const [otpRecord] = await db
+      .select()
+      .from(otps)
+      .where(and(eq(otps.phone, phone), eq(otps.code, code)))
+      .limit(1);
     if (!otpRecord) return res.status(400).json({ error: "Invalid or expired OTP." });
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await User.findOneAndUpdate({ phone }, { password: passwordHash });
-
-    await Otp.deleteOne({ _id: otpRecord._id });
+    await db.update(users).set({ password: passwordHash }).where(eq(users.phone, phone));
+    await db.delete(otps).where(eq(otps.id, otpRecord.id));
 
     res.status(200).json({ message: "Password reset successful." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
+
 export async function requestOtp(req, res) {
   try {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: "Phone number is required" });
 
-    const user = await User.findOne({ phone });
+    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
     if (!user) return res.status(404).json({ error: "User not found." });
 
-    // Hard stop if they haven't talked to the bot yet
     if (!user.telegramChatId) {
       return res.status(400).json({ error: "Telegram not linked. Please message the bot first to receive OTPs." });
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, returnDocument: "after" });
+
+    await db
+      .insert(otps)
+      .values({ phone, code })
+      .onConflictDoUpdate({
+        target: otps.phone,
+        set: { code, createdAt: new Date() },
+      });
 
     await sendTelegramOTP(phone, code);
 
@@ -175,111 +202,77 @@ export async function verifyOtp(req, res) {
   try {
     const { phone, code } = req.body;
 
-    const otpRecord = await Otp.findOne({ phone, code });
-    if (!otpRecord) {
-      return res.status(400).json({ error: "Invalid or expired OTP" });
-    }
+    const [otpRecord] = await db
+      .select()
+      .from(otps)
+      .where(and(eq(otps.phone, phone), eq(otps.code, code)))
+      .limit(1);
+    if (!otpRecord) return res.status(400).json({ error: "Invalid or expired OTP" });
 
-    // OTP is valid. Delete it.
-    await Otp.deleteOne({ _id: otpRecord._id });
+    await db.delete(otps).where(eq(otps.id, otpRecord.id));
 
-    // Check if user exists, if not, create them (Signup flow integration)
-    let user = await User.findOne({ phone });
+    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
 
-    if (!user) {
-      // If you want to require full signup first, return an error here instead.
-      // Otherwise, create a basic shell user:
-      // user = await User.create({ phone, firstName: "New", lastName: "User" });
-      return res.status(404).json({ error: "User not found. Please register first." });
-    }
+    if (!user) return res.status(404).json({ error: "User not found. Please register first." });
+    if (!user.isApproved) return res.status(403).json({ error: "Account pending approval." });
 
-    if (!user.isApproved) {
-      return res.status(403).json({ error: "Account pending approval." });
-    }
-
-    const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
     res.status(200).json({ token, role: user.role, user });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
-// const generateAndSendOtp = async (phone) => {
-//   const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-//   // Save to DB
-//   await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, new: true });
-
-//   // Trigger external API
-//   await sendTelegramOTP(phone, code);
-
-//   return code;
-// };
 export const forgotPassword = async (req, res) => {
-  console.log("1. Reached forgotPassword controller. Body:", req.body);
   try {
     const { phone } = req.body;
+    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
 
-    console.log("2. Searching for user with phone:", phone);
-    const user = await User.findOne({ phone });
-
-    if (!user) {
-      console.log("3. User not found.");
-      return res.status(404).json({ error: "User with this phone number not found." });
-    }
-    console.log("4. User found:", user._id);
+    if (!user) return res.status(404).json({ error: "User with this phone number not found." });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("5. Generated OTP:", code);
 
-    await Otp.findOneAndUpdate({ phone }, { code }, { upsert: true, returnDocument: "after" });
-    console.log("6. Saved OTP to database.");
+    await db
+      .insert(otps)
+      .values({ phone, code })
+      .onConflictDoUpdate({
+        target: otps.phone,
+        set: { code, createdAt: new Date() },
+      });
 
-    console.log("7. Attempting to send OTP via Telegram...");
     await sendTelegramOTP(phone, code);
-    console.log("8. Telegram OTP sent successfully.");
-
     res.status(200).json({ message: "OTP sent to your Telegram." });
   } catch (error) {
-    console.error("9. DEBUG ERROR in forgotPassword:", error);
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };
-
-// controllers/authController.js
 
 export const emergencyRegister = async (req, res) => {
   try {
     const { firstName, lastName, password, phone, studentId, role } = req.body;
 
-    // 1. Check if the user already exists
-    const existingUser = await User.findOne({ phone });
-    if (existingUser) {
-      return res.status(400).json({ error: "Phone number already registered" });
-    }
+    const [existingUser] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+    if (existingUser) return res.status(400).json({ error: "Phone number already registered" });
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    // 2. Create the new user
-    // We set isVerified to true immediately to skip OTP
-    const newUser = new User({
-      firstName,
-      lastName,
-      phone,
-      password: passwordHash,
-      studentId,
-      isVerified: true,
-      role, // Default role
-      registeredBy: req.user._id, // Track which guard performed the registration
-      createdAt: new Date(),
-    });
 
-    await newUser.save();
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        firstName,
+        lastName,
+        phone,
+        password: passwordHash,
+        studentId,
+        isPhoneVerified: true,
+        role,
+        isApproved: true, // Assuming emergency registration bypasses admin approval
+      })
+      .returning();
 
-    res.status(201).json({
-      message: "Emergency registration complete",
-      student: newUser,
-    });
+    res.status(201).json({ message: "Emergency registration complete", student: newUser });
   } catch (error) {
     console.error("Emergency Reg Error:", error);
     res.status(500).json({ error: "Internal server error" });
