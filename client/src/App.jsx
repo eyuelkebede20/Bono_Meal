@@ -10,7 +10,7 @@ import FinanceDashboard from "./components/FinanceDashboard";
 import StudentDashboard from "./components/StudentDashboard";
 import SecurityGuardDashboard from "./components/SecurityGuardDashboard";
 import Unauthorized from "./components/Unauthorized";
-import TestScanner from "./components/TestScanner"; // This can now use your Scanner.jsx logic
+import TestScanner from "./components/Scanner"; // This can now use your Scanner.jsx logic
 import ForgotPassword from "./components/ForgotPassword";
 import Signup from "./components/Signup";
 import CafeLordDashboard from "./components/CafeLordDashboard";

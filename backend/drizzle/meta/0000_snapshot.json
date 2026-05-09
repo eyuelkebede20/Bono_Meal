@@ -1,5 +1,5 @@
 {
-  "id": "25b8deee-dc3e-418f-96f7-d456f8ec01d8",
+  "id": "719c5951-9e25-413e-9ea3-7e2a7476649f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -343,6 +343,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "receipt_image_url": {
+          "name": "receipt_image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "amount": {
           "name": "amount",
           "type": "numeric(12, 2)",
@@ -601,11 +607,25 @@
           "primaryKey": false,
           "notNull": false
         },
+        "verification_token": {
+          "name": "verification_token",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "telegram_chat_id": {
           "name": "telegram_chat_id",
           "type": "varchar(100)",
           "primaryKey": false,
           "notNull": false
+        },
+        "meal_plan_type": {
+          "name": "meal_plan_type",
+          "type": "meal_plan_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'prepaid'"
         },
         "is_approved": {
           "name": "is_approved",
@@ -633,6 +653,31 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "token_version": {
+          "name": "token_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "telegram_id": {
+          "name": "telegram_id",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telegram_link_token": {
+          "name": "telegram_link_token",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approved_by_id": {
+          "name": "approved_by_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -661,6 +706,14 @@
         "approved_by_admin",
         "rejected",
         "refunded"
+      ]
+    },
+    "public.meal_plan_type": {
+      "name": "meal_plan_type",
+      "schema": "public",
+      "values": [
+        "allowance_based",
+        "prepaid"
       ]
     },
     "public.meal_type": {
@@ -702,7 +755,8 @@
         "daily_deduction",
         "reversal",
         "deposit",
-        "meal_deduction"
+        "meal_deduction",
+        "allowance_reset"
       ]
     },
     "public.user_role": {
@@ -714,7 +768,8 @@
         "super_admin",
         "student",
         "military_student",
-        "military_staff"
+        "military_staff",
+        "cafe_manager"
       ]
     }
   },

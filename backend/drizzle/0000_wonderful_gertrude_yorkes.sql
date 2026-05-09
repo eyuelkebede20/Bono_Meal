@@ -1,9 +1,10 @@
 CREATE TYPE "public"."halt_request_status" AS ENUM('pending_admin', 'approved_by_admin', 'rejected', 'refunded');--> statement-breakpoint
+CREATE TYPE "public"."meal_plan_type" AS ENUM('allowance_based', 'prepaid');--> statement-breakpoint
 CREATE TYPE "public"."meal_type" AS ENUM('breakfast', 'lunch', 'dinner');--> statement-breakpoint
 CREATE TYPE "public"."top_up_status" AS ENUM('pending', 'approved', 'rejected', 'reverted');--> statement-breakpoint
 CREATE TYPE "public"."transaction_status" AS ENUM('pending', 'completed', 'failed');--> statement-breakpoint
-CREATE TYPE "public"."transaction_type" AS ENUM('top_up', 'meal_purchase', 'manual_adjustment', 'refund', 'daily_deduction', 'reversal', 'deposit', 'meal_deduction');--> statement-breakpoint
-CREATE TYPE "public"."user_role" AS ENUM('finance_admin', 'security_guard', 'super_admin', 'student', 'military_student', 'military_staff');--> statement-breakpoint
+CREATE TYPE "public"."transaction_type" AS ENUM('top_up', 'meal_purchase', 'manual_adjustment', 'refund', 'daily_deduction', 'reversal', 'deposit', 'meal_deduction', 'allowance_reset');--> statement-breakpoint
+CREATE TYPE "public"."user_role" AS ENUM('finance_admin', 'security_guard', 'super_admin', 'student', 'military_student', 'military_staff', 'cafe_manager');--> statement-breakpoint
 CREATE TABLE "attendance" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"student_id" uuid NOT NULL,
@@ -52,6 +53,7 @@ CREATE TABLE "top_up_requests" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"student_id" uuid NOT NULL,
 	"transaction_number" varchar(255) NOT NULL,
+	"receipt_image_url" text,
 	"amount" numeric(12, 2) NOT NULL,
 	"status" "top_up_status" DEFAULT 'pending' NOT NULL,
 	"handled_by_id" uuid,
@@ -83,11 +85,17 @@ CREATE TABLE "users" (
 	"password" text,
 	"student_id" varchar(100),
 	"fayda_id" varchar(100),
+	"verification_token" varchar(255),
 	"telegram_chat_id" varchar(100),
+	"meal_plan_type" "meal_plan_type" DEFAULT 'prepaid' NOT NULL,
 	"is_approved" boolean DEFAULT false,
 	"active_card_id" uuid,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"token_version" integer DEFAULT 0 NOT NULL,
+	"telegram_id" varchar(50),
+	"telegram_link_token" varchar(64),
+	"approved_by_id" uuid,
 	CONSTRAINT "users_phone_unique" UNIQUE("phone")
 );
 --> statement-breakpoint

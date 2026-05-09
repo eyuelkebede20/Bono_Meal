@@ -1,5 +1,21 @@
 import axios from "axios";
+export const submitQrScan = async (file) => {
+  const formData = new FormData();
+  formData.append("qrImage", file);
 
+  try {
+    // Make sure this route matches exactly where your scan-qr endpoint is mounted
+    const response = await axiosInstance.post("/api/scan-qr", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    // Pass the error message back to the Scanner component
+    throw error.response?.data || { message: "Network error occurred" };
+  }
+};
 // Base instance
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
