@@ -12,6 +12,15 @@ import telegramRoutes from "./src/config/telegram.js";
 import cafeRoutes from "./src/routes/cafe.routes.js";
 import adminRoutes from "./src/routes/admin.js";
 import haltRoutes from "./src/routes/halt.routes.js";
+import "./telegramBot.js";
+
+import fs from "fs";
+import path from "path";
+import axios from "axios";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +45,7 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/cafe", cafeRoutes);
 app.use("/api/halt", haltRoutes);
 app.use("/api", adminRouter);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.listen(PORT, () => {
   try {

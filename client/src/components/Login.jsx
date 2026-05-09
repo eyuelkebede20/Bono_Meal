@@ -8,12 +8,13 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    // 1. Look for the new accessToken
+    const token = localStorage.getItem("accessToken");
 
     if (token) {
       try {
@@ -26,10 +27,12 @@ export default function Login() {
         else if (role === "cafe_lord") navigate("/cafe-dashboard");
         else navigate("/user");
       } catch {
-        localStorage.removeItem("token");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
       }
     }
   }, [navigate]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (loading) return;
@@ -47,17 +50,17 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem("token", data.token);
+        // 2. Save BOTH tokens
+        localStorage.setItem("accessToken", data.accessToken);
+        localStorage.setItem("refreshToken", data.refreshToken);
 
-        const decoded = jwtDecode(data.token);
+        const decoded = jwtDecode(data.accessToken);
         const role = data.role || decoded.role;
 
-        // UPDATED LOGIC HERE
         if (role === "super_admin") navigate("/super-admin");
         else if (role === "finance_admin") navigate("/finance-admin");
         else if (role === "security_guard") navigate("/security-guard");
-        else if (role === "cafe_lord")
-          navigate("/cafe-dashboard"); // ADD THIS LINE
+        else if (role === "cafe_lord") navigate("/cafe-dashboard");
         else navigate("/user");
       } else {
         setError(data.error || "Login failed");
@@ -68,6 +71,7 @@ export default function Login() {
 
     setLoading(false);
   };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-base-300 px-4">
       <div className="card w-full max-w-md bg-base-100 shadow-xl">

@@ -4,9 +4,49 @@ import { topUpUser } from "../controllers/user.controllers.js";
 import { db } from "../config/db.js";
 import { transactions, cards, users } from "../db/schema.js";
 import { eq, and, desc, gte, sum, count } from "drizzle-orm";
+import multer from "multer";
+import { decodeDenseQR } from "dense-qr-decoder";
+import sharp from "sharp";
+
+import fs from "fs";
+import path from "path";
+import axios from "axios";
+import { fileURLToPath } from "url";
 
 const adminRouter = express.Router();
+// ESM __dirname configuration
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+// Image Download Helper
+const downloadAndStoreImage = async (url, userId) => {
+  const filename = `${userId}_${Date.now()}.jpg`;
+  const localPath = path.join(__dirname, "../../uploads", filename);
+
+  // Ensure directory exists
+  if (!fs.existsSync(path.dirname(localPath))) {
+    fs.mkdirSync(path.dirname(localPath), { recursive: true });
+  }
+
+  const response = await axios({ url, responseType: "stream" });
+
+  return new Promise((resolve, reject) => {
+    response.data
+      .pipe(fs.createWriteStream(localPath))
+      .on("finish", () => resolve(`/uploads/${filename}`))
+      .on("error", reject);
+  });
+};
+
+if (typeof global.ImageData === "undefined") {
+  global.ImageData = class ImageData {
+    constructor(data, width, height) {
+      this.data = data;
+      this.width = width;
+      this.height = height;
+    }
+  };
+}
 // GET /api/transactions
 adminRouter.get("/transactions", authMiddleware, async (req, res) => {
   try {
@@ -202,4 +242,66 @@ adminRouter.get("/transactions/user/:id", authMiddleware, async (req, res) => {
 
 adminRouter.post("/transactions/topup", authMiddleware, roleMiddleware(["finance_admin", "super_admin"]), topUpUser);
 
+// Keep using memoryStorage so sharp can process the buffer directly
+const upload = multer({ storage: multer.memoryStorage() });
+
+adminRouter.post("/scan-qr", authMiddleware, roleMiddleware(["finance_admin", "super_admin", "security_guard"]), upload.single("qrImage"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No image provided." });
+
+    const { data, info } = await sharp(req.file.buffer).grayscale().threshold(128).raw().toBuffer({ resolveWithObject: true });
+
+    const rawQrText = await decodeDenseQR({
+      data: new Uint8ClampedArray(data),
+      width: info.width,
+      height: info.height,
+      channels: info.channels,
+    });
+
+    if (!rawQrText) return res.status(400).json({ error: "QR code not detected." });
+
+    // 1. Decode Fayda Payload
+    let qrData;
+    try {
+      const decodedString = Buffer.from(rawQrText, "base64").toString("utf-8");
+      qrData = JSON.parse(decodedString);
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid Fayda QR format." });
+    }
+
+    // Ensure we have an ID to query against
+    const faydaIdFromQR = qrData.id || qrData.faydaId;
+    if (!faydaIdFromQR) return res.status(400).json({ error: "No ID found in QR payload." });
+
+    // 2. Database Lookup
+    const [result] = await db.select({ card: cards, owner: users }).from(cards).innerJoin(users, eq(cards.ownerId, users.id)).where(eq(users.faydaId, faydaIdFromQR)).limit(1);
+
+    if (!result) return res.status(404).json({ valid: false, message: "Card not registered." });
+    if (!result.card.isActive) return res.status(403).json({ valid: false, message: "Card suspended." });
+
+    // 3. Process Image (Download once and save to DB)
+    let localImageUrl = result.owner.faceImage; // Assuming faceImage column exists in your schema
+
+    if (!localImageUrl && qrData.photoUrl) {
+      localImageUrl = await downloadAndStoreImage(qrData.photoUrl, result.owner.id);
+
+      // Update DB so we don't download it again next time
+      await db.update(users).set({ faceImage: localImageUrl }).where(eq(users.id, result.owner.id));
+    }
+
+    res.status(200).json({
+      valid: true,
+      message: "Meal approved",
+      student: {
+        firstName: result.owner.firstName,
+        lastName: result.owner.lastName,
+        studentId: result.owner.studentId,
+        faceImage: localImageUrl, // Returns e.g. "/uploads/123_456.jpg"
+      },
+    });
+  } catch (error) {
+    console.error("Scanner Error:", error);
+    res.status(500).json({ error: "Internal processing error." });
+  }
+});
 export default adminRouter;

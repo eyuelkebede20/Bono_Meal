@@ -37,6 +37,7 @@ export const users = pgTable("users", {
   password: text("password"),
   studentId: varchar("student_id", { length: 100 }),
   faydaId: varchar("fayda_id", { length: 100 }),
+  verificationToken: varchar("verification_token", { length: 255 }),
   telegramChatId: varchar("telegram_chat_id", { length: 100 }),
   mealPlanType: mealPlanTypeEnum("meal_plan_type").default("prepaid").notNull(), // Added
   isApproved: boolean("is_approved").default(false),
@@ -44,6 +45,8 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   tokenVersion: integer("token_version").default(0).notNull(),
+  telegramId: varchar("telegram_id", { length: 50 }),
+  telegramLinkToken: varchar("telegram_link_token", { length: 64 }),
   approvedById: uuid("approved_by_id"),
 });
 

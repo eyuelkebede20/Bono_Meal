@@ -5,74 +5,71 @@ import { db } from "../config/db.js"; // Adjust path if needed
 import { users, cards, otps } from "../db/schema.js"; // Adjust path
 import { sendTelegramOTP } from "../utils/otpSender.js";
 import { bot } from "../config/telegram.js";
+import crypto from "crypto";
 
 export const signup = async (req, res) => {
   try {
     let { firstName, lastName, phone, password, role, studentId, faydaId } = req.body;
+    // Assuming image upload (e.g., idImageUrl) is handled by a middleware like multer before this controller
+
     phone = phone.replace(/\D/g, "");
 
     const [existingUser] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
 
     if (existingUser && existingUser.password) {
-      return res.status(400).json({ error: "This phone number is already registered and active." });
+      return res.status(400).json({ error: "This phone number is already registered." });
     }
 
-    if (existingUser && existingUser.telegramChatId) {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-      const [user] = await db
-        .insert(users)
-        .values({
+    // Generate handshake token
+    const verifyToken = crypto.randomBytes(16).toString("hex");
+
+    await db
+      .insert(users)
+      .values({
+        firstName,
+        lastName,
+        phone,
+        password: hashedPassword,
+        role,
+        studentId: ["student", "military_student"].includes(role) ? studentId : null,
+        faydaId: ["student", "military_student"].includes(role) ? faydaId : null,
+        isApproved: false,
+        verificationToken: verifyToken,
+      })
+      .onConflictDoUpdate({
+        target: users.phone,
+        set: {
           firstName,
           lastName,
-          phone,
           password: hashedPassword,
           role,
           studentId: ["student", "military_student"].includes(role) ? studentId : null,
           faydaId: ["student", "military_student"].includes(role) ? faydaId : null,
-          isApproved: false,
-          telegramChatId: existingUser.telegramChatId,
-        })
-        .onConflictDoUpdate({
-          target: users.phone,
-          set: {
-            firstName,
-            lastName,
-            password: hashedPassword,
-            role,
-            studentId: ["student", "military_student"].includes(role) ? studentId : null,
-            faydaId: ["student", "military_student"].includes(role) ? faydaId : null,
-          },
-        })
-        .returning();
+          verificationToken: verifyToken,
+        },
+      });
 
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+    res.status(201).json({
+      message: "Registration saved. Please link Telegram to complete setup.",
+      verifyToken: verifyToken,
+      telegramLink: `https://t.me/bon_card_otp_bot?start=verify_${verifyToken}`,
+    });
 
-      await db
-        .insert(otps)
-        .values({ phone, code })
-        .onConflictDoUpdate({
-          target: otps.phone, // Ensure phone is marked .unique() in your otps schema
-          set: { code, createdAt: new Date() },
-        });
+    const linkToken = crypto.randomBytes(16).toString("hex");
 
-      await bot.sendMessage(user.telegramChatId, `Your Signup Verification OTP is: <code>${code}</code>`, { parse_mode: "HTML" });
-      res.status(201).json({ message: "Signup details saved. Check Telegram for OTP." });
+    await db.update(users).set({ telegramLinkToken: linkToken }).where(eq(users.id, newUser.id)); // Assuming newUser holds the inserted user
 
-      if (user.role === "military_student") {
-        await db.insert(cards).values({
-          cardNumber: user.studentId, // Assuming studentId is used as cardNumber here
-          ownerId: user.id,
-          balance: "3000.00",
-          isActive: false,
-        });
-      }
-    } else {
-      res.status(201).json({ message: "Please Link your phone number to the system via Telegram bot first." });
-    }
+    // Replace YOUR_BOT_USERNAME with your actual bot handle (without the @)
+    const telegramLink = `https://t.me/bon_card_otp_bot?start=${linkToken}`;
+
+    res.status(201).json({
+      message: "User registered successfully.",
+      telegramLink: telegramLink,
+    });
   } catch (error) {
-    console.error("Signup Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };

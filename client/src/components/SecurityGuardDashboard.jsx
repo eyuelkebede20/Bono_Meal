@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
@@ -10,19 +10,20 @@ export default function SecurityGuardDashboard() {
   const [student, setStudent] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
 
+  // Emergency Modal State
+  const [showEmergency, setShowEmergency] = useState(false);
+  const [emergencyData, setEmergencyData] = useState({ firstName: "", lastName: "", phone: "", studentId: "" });
+  const [emergencyStatus, setEmergencyStatus] = useState("");
+
   const navigate = useNavigate();
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-  // Audio References
-  const successSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"); // "Ahhh/Ding"
-  const errorSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2873/2873-preview.mp3"); // "Uggg/Buzz"
+  const successSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+  const errorSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2873/2873-preview.mp3");
 
   const playFeedback = (isSuccess) => {
-    if (isSuccess) {
-      successSound.play();
-    } else {
-      errorSound.play();
-    }
+    if (isSuccess) successSound.play();
+    else errorSound.play();
   };
 
   const handleScanLogic = async (inputPhone) => {
@@ -35,7 +36,7 @@ export default function SecurityGuardDashboard() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
         },
         body: JSON.stringify({ phone: inputPhone, mealType }),
       });
@@ -51,50 +52,78 @@ export default function SecurityGuardDashboard() {
         setError(`❌ ${data.error}`);
         playFeedback(false);
       }
-    } catch (err) {
+    } catch {
       setError("❌ Failed to connect to the server.");
       playFeedback(false);
     }
   };
 
-  // QR Scanner Initialization
+  const handleEmergencySubmit = async (e) => {
+    e.preventDefault();
+    setEmergencyStatus("Submitting...");
+
+    const cleanPhone = emergencyData.phone.replace(/\D/g, "");
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...emergencyData,
+          phone: cleanPhone,
+          password: "TEMP_" + Math.floor(1000 + Math.random() * 9000), // Auto-gen temp password
+          role: "student",
+          faydaId: "PENDING_EMERGENCY",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setEmergencyStatus("✅ Sent to Super Admin for approval.");
+        setTimeout(() => {
+          setShowEmergency(false);
+          setEmergencyData({ firstName: "", lastName: "", phone: "", studentId: "" });
+          setEmergencyStatus("");
+        }, 2000);
+      } else {
+        setEmergencyStatus(`❌ ${data.error}`);
+      }
+    } catch {
+      setEmergencyStatus("❌ Network error.");
+    }
+  };
+
   useEffect(() => {
     let scanner;
     if (isScanning) {
-      scanner = new Html5QrcodeScanner("reader", {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-      });
-
+      scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 } });
       scanner.render(
         (decodedText) => {
           setPhone(decodedText);
           handleScanLogic(decodedText);
-          setIsScanning(false); // Close scanner after successful scan
+          setIsScanning(false);
           scanner.clear();
         },
-        (err) => {
-          // Silent failure for scanning frames
-        },
+        () => {},
       );
     }
-
     return () => {
       if (scanner) scanner.clear().catch(console.error);
     };
-  }, [isScanning, mealType]); // Re-run if scanning state or mealType changes
+  }, [isScanning, mealType]);
 
   return (
     <div className="min-h-screen bg-base-300 p-4 font-sans">
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
         <h1 className="text-2xl font-black text-primary tracking-tight">SECURITY TERMINAL</h1>
         <div className="flex gap-2">
-          <button onClick={() => navigate("/emergency-register")} className="btn btn-warning btn-sm">
+          <button onClick={() => setShowEmergency(true)} className="btn btn-warning btn-sm">
             Emergency Reg
           </button>
           <button
             onClick={() => {
-              localStorage.removeItem("token");
+              localStorage.removeItem("accessToken");
+              localStorage.removeItem("refreshToken");
               navigate("/login");
             }}
             className="btn btn-error btn-sm"
@@ -144,7 +173,6 @@ export default function SecurityGuardDashboard() {
           <div className="mt-8 transition-all">
             {message && <div className="alert alert-success shadow-md text-white font-bold text-center">{message}</div>}
             {error && <div className="alert alert-error shadow-md text-white font-bold text-center">{error}</div>}
-
             {student && (
               <div className="mt-4 p-6 bg-base-200 rounded-2xl border-2 border-success flex flex-col items-center">
                 <div className="avatar placeholder mb-3">
@@ -165,6 +193,64 @@ export default function SecurityGuardDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Emergency Modal */}
+      {showEmergency && (
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg text-warning mb-4">Emergency Registration</h3>
+            <p className="text-sm opacity-70 mb-4">Registering a student here defaults to an unapproved state. The Super Admin must approve them before they can scan.</p>
+
+            <form onSubmit={handleEmergencySubmit} className="flex flex-col gap-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="First Name"
+                  required
+                  value={emergencyData.firstName}
+                  onChange={(e) => setEmergencyData({ ...emergencyData, firstName: e.target.value })}
+                  className="input input-bordered w-full"
+                />
+                <input
+                  type="text"
+                  placeholder="Last Name"
+                  required
+                  value={emergencyData.lastName}
+                  onChange={(e) => setEmergencyData({ ...emergencyData, lastName: e.target.value })}
+                  className="input input-bordered w-full"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Phone Number"
+                required
+                value={emergencyData.phone}
+                onChange={(e) => setEmergencyData({ ...emergencyData, phone: e.target.value })}
+                className="input input-bordered w-full"
+              />
+              <input
+                type="text"
+                placeholder="Student ID"
+                required
+                value={emergencyData.studentId}
+                onChange={(e) => setEmergencyData({ ...emergencyData, studentId: e.target.value })}
+                className="input input-bordered w-full"
+              />
+
+              {emergencyStatus && <div className={`text-sm font-bold ${emergencyStatus.includes("❌") ? "text-error" : "text-success"}`}>{emergencyStatus}</div>}
+
+              <div className="modal-action mt-2">
+                <button type="button" onClick={() => setShowEmergency(false)} className="btn btn-ghost">
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-warning">
+                  Submit to Admin
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

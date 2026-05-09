@@ -15,6 +15,13 @@
       "when": 1778268762527,
       "tag": "0001_striped_kinsey_walden",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778362542909,
+      "tag": "0002_purple_old_lace",
+      "breakpoints": true
     }
   ]
 }

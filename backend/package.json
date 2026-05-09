@@ -1,19 +1,25 @@
 {
   "type": "module",
   "dependencies": {
+    "axios": "^1.16.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
+    "dense-qr-decoder": "^1.0.10",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
+    "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.0",
+    "multer": "^2.1.1",
     "node-cron": "^4.2.1",
-    "node-telegram-bot-api": "^0.63.0",
+    "node-telegram-bot-api": "^0.67.0",
     "nodemon": "^3.1.14",
+    "path": "^0.12.7",
     "pg": "^8.20.0",
-    "redis": "^5.12.1"
+    "redis": "^5.12.1",
+    "sharp": "^0.34.5"
   },
   "scripts": {
     "dev": "nodemon index.js",
