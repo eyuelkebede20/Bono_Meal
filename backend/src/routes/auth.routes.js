@@ -1,6 +1,6 @@
 import express from "express";
 import { login, signup, logout, refreshAccessToken } from "../controllers/auth.controllers.js";
-import { requestOtp, verifyOtp, verifySignup, forgotPassword, resetPassword, emergencyRegister } from "../controllers/auth.controllers.js";
+import { requestOtp, verifyOtp, verifySignup, forgotPassword, resetPassword, emergencyRegister, pingTelegram } from "../controllers/auth.controllers.js";
 import { authMiddleware, roleMiddleware } from "../middleware/auth.checker.js";
 
 const router = express.Router();
@@ -8,7 +8,7 @@ const router = express.Router();
 router.post("/signup", signup);
 router.post("/verify-signup", verifySignup);
 router.post("/login", login);
-
+router.get("/check-status/:phone", pingTelegram);
 // NEW: Refresh Token Route
 router.post("/refresh-token", refreshAccessToken);
 

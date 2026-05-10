@@ -1,33 +1,38 @@
 import TelegramBot from "node-telegram-bot-api";
-import { db } from "./src/config/db.js";
-import { users } from "./src/db/schema.js";
+import { db } from "./config/db.js";
+import { users } from "./schema.js";
 import { eq } from "drizzle-orm";
 import "dotenv/config";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
-
-// Initialize bot
 const bot = new TelegramBot(token, { polling: true });
 
 console.log("🤖 Telegram Bot is running...");
 
 bot.onText(/\/start (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const linkToken = match[1]; // The token from the deep link
+  const chatId = msg.chat.id.toString();
+  const linkToken = match[1];
 
   try {
-    // Find the user with this specific link token
+    // 1. Check if this Telegram account is ALREADY linked to someone
+    const [existingTelegramUser] = await db.select().from(users).where(eq(users.telegramId, chatId)).limit(1);
+
+    if (existingTelegramUser) {
+      return bot.sendMessage(chatId, "⚠️ This Telegram account is already linked to a student. You cannot link multiple accounts to the same Telegram profile.");
+    }
+
+    // 2. Find the user trying to link via the token
     const [user] = await db.select().from(users).where(eq(users.telegramLinkToken, linkToken)).limit(1);
 
     if (!user) {
       return bot.sendMessage(chatId, "❌ Invalid or expired linking token. Please try signing up again.");
     }
 
-    // Link the account and destroy the single-use token
+    // 3. Link the account and destroy the single-use token
     await db
       .update(users)
       .set({
-        telegramId: chatId.toString(),
+        telegramId: chatId,
         telegramLinkToken: null,
       })
       .where(eq(users.id, user.id));
@@ -42,7 +47,6 @@ bot.onText(/\/start (.+)/, async (msg, match) => {
   }
 });
 
-// Basic start command for users who search the bot manually
 bot.onText(/\/start$/, (msg) => {
   bot.sendMessage(msg.chat.id, "Welcome to the Bono Meal Card system. To link your account, please use the link provided on the web portal after signing up.");
 });

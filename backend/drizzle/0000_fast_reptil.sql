@@ -86,7 +86,6 @@ CREATE TABLE "users" (
 	"student_id" varchar(100),
 	"fayda_id" varchar(100),
 	"verification_token" varchar(255),
-	"telegram_chat_id" varchar(100),
 	"meal_plan_type" "meal_plan_type" DEFAULT 'prepaid' NOT NULL,
 	"is_approved" boolean DEFAULT false,
 	"active_card_id" uuid,
@@ -96,7 +95,8 @@ CREATE TABLE "users" (
 	"telegram_id" varchar(50),
 	"telegram_link_token" varchar(64),
 	"approved_by_id" uuid,
-	CONSTRAINT "users_phone_unique" UNIQUE("phone")
+	CONSTRAINT "users_phone_unique" UNIQUE("phone"),
+	CONSTRAINT "users_telegram_id_unique" UNIQUE("telegram_id")
 );
 --> statement-breakpoint
 ALTER TABLE "attendance" ADD CONSTRAINT "attendance_student_id_users_id_fk" FOREIGN KEY ("student_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

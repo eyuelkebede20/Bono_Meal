@@ -1,5 +1,5 @@
 {
-  "id": "719c5951-9e25-413e-9ea3-7e2a7476649f",
+  "id": "69761912-d41b-48b2-a838-c8d4c6a70278",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -613,12 +613,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "telegram_chat_id": {
-          "name": "telegram_chat_id",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "meal_plan_type": {
           "name": "meal_plan_type",
           "type": "meal_plan_type",
@@ -689,6 +683,13 @@
           "nullsNotDistinct": false,
           "columns": [
             "phone"
+          ]
+        },
+        "users_telegram_id_unique": {
+          "name": "users_telegram_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "telegram_id"
           ]
         }
       },

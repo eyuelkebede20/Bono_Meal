@@ -58,7 +58,26 @@ export const signup = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+export const pingTelegram = async (req, res) => {
+  try {
+    const phone = req.params.phone.replace(/\D/g, "");
 
+    const [user] = await db.select({ telegramId: users.telegramId }).from(users).where(eq(users.phone, phone)).limit(1);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // If telegramId is no longer null, the bot successfully linked them
+    if (user.telegramId) {
+      return res.json({ linked: true });
+    }
+
+    return res.json({ linked: false });
+  } catch (error) {
+    res.status(500).json({ error: "Status check failed." });
+  }
+};
 export async function verifySignup(req, res) {
   try {
     let { phone, code } = req.body;
