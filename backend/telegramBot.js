@@ -1,6 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
-import { db } from "./config/db.js";
-import { users } from "./schema.js";
+import { db } from "./src/config/db.js";
+import { users } from "./src/db/schema.js";
 import { eq } from "drizzle-orm";
 import "dotenv/config";
 
