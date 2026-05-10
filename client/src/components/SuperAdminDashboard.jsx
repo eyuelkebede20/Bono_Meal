@@ -21,7 +21,7 @@ export default function SuperAdminDashboard() {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   const fetchPendingHalts = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
     try {
       const res = await fetch(`${BACKEND_URL}/api/halt?status=pending_admin`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -34,16 +34,18 @@ export default function SuperAdminDashboard() {
       console.error("Failed to fetch halt requests:", error);
     }
   };
+
   const approveHalt = async (id) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
     const res = await fetch(`${BACKEND_URL}/api/halt/${id}/approve`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) fetchPendingHalts(); // Refresh list
   };
+
   const toggleUserStatus = async (userId) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/users/${userId}/toggle`, {
         method: "PATCH",
@@ -60,18 +62,18 @@ export default function SuperAdminDashboard() {
       console.error("Toggle error:", error);
     }
   };
+
   useEffect(() => {
     fetchStats();
-  }, []);
-  useEffect(() => {
     fetchPendingHalts();
   }, []);
+
   useEffect(() => {
     fetchUsers();
   }, [page, searchQuery]);
 
   const fetchStats = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/stats`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -86,7 +88,7 @@ export default function SuperAdminDashboard() {
   };
 
   const fetchUsers = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
     try {
       const res = await fetch(`${BACKEND_URL}/api/users?page=${page}&limit=${limit}&search=${searchQuery}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -94,8 +96,8 @@ export default function SuperAdminDashboard() {
       const data = await res.json();
 
       if (res.ok) {
-        setUsers(data.users);
-        setTotalPages(data.pagination.totalPages);
+        setUsers(data.users || data); // Failsafe if backend doesn't wrap in { users: [] }
+        setTotalPages(data.pagination?.totalPages || 1);
       }
     } catch (error) {
       console.error("Fetch users error:", error);
@@ -109,7 +111,8 @@ export default function SuperAdminDashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
     navigate("/");
   };
 
@@ -175,29 +178,30 @@ export default function SuperAdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user._id} className="hover">
-                    <td>
-                      {["student", "military_student"].includes(user.role) ? (
-                        <button onClick={() => setSelectedStudentId(user._id)} className="text-primary hover:underline font-bold">
-                          {user.firstName} {user.lastName}
+                {users &&
+                  users.map((user) => (
+                    <tr key={user.id} className="hover">
+                      <td>
+                        {["student", "military_student"].includes(user.role) ? (
+                          <button onClick={() => setSelectedStudentId(user.id)} className="text-primary hover:underline font-bold">
+                            {user.firstName} {user.lastName}
+                          </button>
+                        ) : (
+                          <span>
+                            {user.firstName} {user.lastName}
+                          </span>
+                        )}
+                      </td>
+                      <td>{user.phone}</td>
+                      <td className="capitalize">{user.role.replace("_", " ")}</td>
+                      <td>
+                        <button onClick={() => toggleUserStatus(user.id)} className={`btn btn-xs ${user.isApproved ? "btn-error" : "btn-warning"}`}>
+                          {user.isApproved ? "Disapprove" : "Approve"}
                         </button>
-                      ) : (
-                        <span>
-                          {user.firstName} {user.lastName}
-                        </span>
-                      )}
-                    </td>
-                    <td>{user.phone}</td>
-                    <td className="capitalize">{user.role.replace("_", " ")}</td>
-                    <td>
-                      <button onClick={() => toggleUserStatus(user._id)} className={`btn btn-xs ${user.isApproved ? "btn-error" : "btn-warning"}`}>
-                        {user.isApproved ? "Disapprove" : "Approve"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
+                      </td>
+                    </tr>
+                  ))}
+                {(!users || users.length === 0) && (
                   <tr>
                     <td colSpan="4" className="text-center py-4">
                       No users found.
@@ -238,7 +242,7 @@ export default function SuperAdminDashboard() {
               </thead>
               <tbody>
                 {haltRequests.map((req) => (
-                  <tr key={req._id}>
+                  <tr key={req.id}>
                     <td>
                       {req.user?.firstName} {req.user?.lastName}
                     </td>
@@ -252,7 +256,7 @@ export default function SuperAdminDashboard() {
                       />
                     </td>
                     <td>
-                      <button onClick={() => approveHalt(req._id)} className="btn btn-warning btn-sm">
+                      <button onClick={() => approveHalt(req.id)} className="btn btn-warning btn-sm">
                         Approve to Finance
                       </button>
                     </td>
