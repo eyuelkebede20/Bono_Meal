@@ -251,34 +251,27 @@ export default function Signup() {
     setError("");
     setMessage("");
 
-    if (!scannedIdentity || !qrFile) {
+    if (!scannedIdentity) {
       setError("You must scan a Fayda ID to register.");
       return;
     }
 
     const nameParts = scannedIdentity.fullName.split(" ");
 
-    const submitData = new FormData();
-
-    submitData.append("phone", formData.phone);
-    submitData.append("password", formData.password);
-    submitData.append("role", formData.role);
-    submitData.append("studentId", formData.studentId);
-
-    submitData.append("faydaId", scannedIdentity.faydaId);
-
-    submitData.append("firstName", nameParts[0] || "");
-
-    submitData.append("lastName", nameParts.slice(1).join(" ") || "");
-
-    submitData.append("faydaImage", qrFile);
+    // Use a standard JavaScript object, NOT FormData
+    const submitData = {
+      phone: formData.phone,
+      password: formData.password,
+      role: formData.role,
+      studentId: formData.studentId,
+      faydaId: scannedIdentity.faydaId,
+      firstName: nameParts[0] || "",
+      lastName: nameParts.slice(1).join(" ") || "",
+    };
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/signup`, submitData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      // Axios automatically sends this as application/json
+      const response = await axios.post(`${BACKEND_URL}/api/auth/signup`, submitData);
 
       if (response.data.telegramLink) {
         setTelegramLink(response.data.telegramLink);

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { submitQrScan } from "../api/axiosConfig"; // Adjust path to where you saved the API call
-
+import {}
 const Scanner = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
