@@ -1,7 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import basicSsl from "@vitejs/plugin-basic-ssl";
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
 
 export default defineConfig({
-  plugins: [react(), basicSsl()],
+  plugins: [react(), wasm(), topLevelAwait()],
+  optimizeDeps: {
+    exclude: ["dense-qr-decoder"], // Prevents Vite from pre-bundling the WASM incorrectly
+  },
 });

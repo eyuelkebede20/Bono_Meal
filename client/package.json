@@ -16,10 +16,13 @@
     "daisyui": "^3.9.4",
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.19",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0"
   },
   "dependencies": {
     "axios": "^1.16.0",
+    "dense-qr-decoder": "^1.0.11",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
@@ -28,6 +31,7 @@
     "react-barcode": "^1.6.1",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.1",
-    "recharts": "^3.8.0"
+    "recharts": "^3.8.0",
+    "sharp": "^0.34.5"
   }
 }
