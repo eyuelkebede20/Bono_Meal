@@ -10,7 +10,6 @@ import crypto from "crypto";
 export const signup = async (req, res) => {
   try {
     let { firstName, lastName, phone, password, role, studentId, faydaId } = req.body;
-    // Assuming image upload (e.g., idImageUrl) is handled by a middleware like multer before this controller
 
     phone = phone.replace(/\D/g, "");
 
@@ -23,8 +22,7 @@ export const signup = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Generate handshake token
-    const verifyToken = crypto.randomBytes(16).toString("hex");
+    const linkToken = crypto.randomBytes(16).toString("hex");
 
     await db
       .insert(users)
@@ -36,8 +34,8 @@ export const signup = async (req, res) => {
         role,
         studentId: ["student", "military_student"].includes(role) ? studentId : null,
         faydaId: ["student", "military_student"].includes(role) ? faydaId : null,
+        telegramLinkToken: linkToken,
         isApproved: false,
-        verificationToken: verifyToken,
       })
       .onConflictDoUpdate({
         target: users.phone,
@@ -48,26 +46,13 @@ export const signup = async (req, res) => {
           role,
           studentId: ["student", "military_student"].includes(role) ? studentId : null,
           faydaId: ["student", "military_student"].includes(role) ? faydaId : null,
-          verificationToken: verifyToken,
+          telegramLinkToken: linkToken,
         },
       });
 
     res.status(201).json({
       message: "Registration saved. Please link Telegram to complete setup.",
-      verifyToken: verifyToken,
-      telegramLink: `https://t.me/bon_card_otp_bot?start=verify_${verifyToken}`,
-    });
-
-    const linkToken = crypto.randomBytes(16).toString("hex");
-
-    await db.update(users).set({ telegramLinkToken: linkToken }).where(eq(users.id, newUser.id)); // Assuming newUser holds the inserted user
-
-    // Replace YOUR_BOT_USERNAME with your actual bot handle (without the @)
-    const telegramLink = `https://t.me/bon_card_otp_bot?start=${linkToken}`;
-
-    res.status(201).json({
-      message: "User registered successfully.",
-      telegramLink: telegramLink,
+      telegramLink: `https://t.me/bon_card_otp_bot?start=${linkToken}`,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
