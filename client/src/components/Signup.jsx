@@ -121,15 +121,39 @@ export default function Signup() {
       if (!rawQrText) {
         throw new Error("No QR code detected in the image.");
       }
+      if (rawQrText) {
+        const qrData = decodeBrowserFaydaQR(rawQrText);
+
+        setFormData((prev) => ({
+          ...prev,
+          firstName: qrData.fullName ? qrData.fullName.split(" ")[0] : prev.firstName,
+
+          lastName: qrData.fullName ? qrData.fullName.split(" ").slice(1).join(" ") : prev.lastName,
+
+          faydaId: qrData.id || qrData.faydaId || prev.faydaId,
+        }));
+
+        setMessage("✅ Fayda ID scanned successfully!");
+        stopCamera();
+        return;
+      }
 
       // Use the custom browser decoder instead of raw atob()
       const qrData = decodeBrowserFaydaQR(rawQrText);
+
+      // Save scanned identity
+      setScannedIdentity(qrData);
+
+      // Save uploaded image file
+      setQrFile(file);
 
       // Auto-fill the form
       setFormData((prev) => ({
         ...prev,
         firstName: qrData.fullName ? qrData.fullName.split(" ")[0] : prev.firstName,
+
         lastName: qrData.fullName ? qrData.fullName.split(" ").slice(1).join(" ") : prev.lastName,
+
         faydaId: qrData.id || qrData.faydaId || prev.faydaId,
       }));
 
